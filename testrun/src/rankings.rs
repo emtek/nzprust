@@ -264,7 +264,16 @@ mod tests {
             if let Some(mut pn) = pn {
                 pn.sort_by(|a, b| a.pilot_pin.cmp(&b.pilot_pin));
                 for point in pn {
-                    println!("{} {}", point.pilot_pin, point.total_points);
+                    for existing_ranking in &root.rankings[0].ranking_points {
+                        if existing_ranking.pilot_pin == point.pilot_pin {
+                            println!("{} {}", point.pilot_pin, point.total_points);
+                            assert_eq!(
+                                (point.total_points - existing_ranking.total_points).abs()
+                                    < 0.00000001,
+                                true
+                            );
+                        }
+                    }
                 }
             }
         }
