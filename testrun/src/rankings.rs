@@ -1,19 +1,11 @@
 use crate::constants::constants;
-use crate::prs_data_types::{
-    CompResult, Competition, Pilot, Pilot2, Placing, Ranking, RankingPoint, Root,
-};
-use crate::{data_access, prs_data_types};
+use crate::prs_data_types::{CompResult, Competition, Pilot2, Placing, Ranking, RankingPoint};
+
 use chrono::prelude::*;
-use chrono::{DateTime, FixedOffset, Months, ParseError, Utc};
-use std::cmp::min;
+use chrono::Months;
 use std::collections::HashMap;
-use std::hash::Hash;
-use std::num;
-use std::ops::Div;
-use std::thread::current;
 
-use serde_json::from_str;
-
+#[allow(dead_code)]
 fn participant_number(
     current_competition: &Competition,
     competition_history: Vec<Competition>,
@@ -48,6 +40,7 @@ fn participant_number(
     Some(raw_pn.min(constants::PN_MAX))
 }
 
+#[allow(dead_code)]
 fn calculate_pilot_placing(competition: Competition, place: f64) -> f64 {
     let last_place = competition.placings.len() as f64;
     (last_place - place + 1.0) / last_place
@@ -57,28 +50,21 @@ fn pilot_quality(ranking: Option<&Ranking>, placings: &Vec<Placing>) -> f64 {
     match ranking {
         None => 1.0,
         Some(ranking) => {
-            println!("{}", ranking.date);
-            match placings[..] {
-                [] => constants::PQ_MIN,
-                _ => {
-                    // Get the most recent ranking points prior to this comp for these pilots and for top pilots.
-                    let Pq_srp = Pq_srp(
-                        placings.iter().map(|p| p.pilot.clone()).collect(),
-                        ranking.ranking_points.clone(),
-                    );
-                    let mut num = (placings.len() as f64 / 2.0).round();
-                    if (num > ranking.ranking_points.len() as f64) {
-                        num = ranking.ranking_points.len() as f64;
-                    }
-                    let Pq_srtp = Pq_srtp(num, ranking.ranking_points.clone());
-                    Pq_srp / Pq_srtp * (1.0 - constants::PQ_MIN) + constants::PQ_MIN
-                }
-            }
+            // Get the most recent ranking points prior to this comp for these pilots and for top pilots.
+            let pq_srp = pilot_quality_srp(
+                placings.iter().map(|p| p.pilot.clone()).collect(),
+                ranking.ranking_points.clone(),
+            );
+            let pq_srtp = pilot_quality_srtp(
+                (placings.len() as f64 / 2.0).round(),
+                ranking.ranking_points.clone(),
+            );
+            pq_srp / pq_srtp * (1.0 - constants::PQ_MIN) + constants::PQ_MIN
         }
     }
 }
 
-fn Pq_srtp(num: f64, ranking_points: Vec<RankingPoint>) -> f64 {
+fn pilot_quality_srtp(num: f64, ranking_points: Vec<RankingPoint>) -> f64 {
     ranking_points
         .iter()
         .map(|rp| rp.total_points)
@@ -86,7 +72,7 @@ fn Pq_srtp(num: f64, ranking_points: Vec<RankingPoint>) -> f64 {
         .sum()
 }
 /// Pilot quality
-fn Pq_srp(pilots: Vec<Pilot2>, ranking_points: Vec<RankingPoint>) -> f64 {
+fn pilot_quality_srp(pilots: Vec<Pilot2>, ranking_points: Vec<RankingPoint>) -> f64 {
     let mut points: Vec<f64> = ranking_points
         .iter()
         .filter(|rp| pilots.iter().any(|p| p.pin == rp.pilot_pin))
@@ -99,6 +85,8 @@ fn Pq_srp(pilots: Vec<Pilot2>, ranking_points: Vec<RankingPoint>) -> f64 {
         .take((points.len() as f64 / 2.0).round() as usize)
         .sum()
 }
+
+#[allow(dead_code)]
 /// Get the quality of the competition
 fn competition_task_quality(number_of_tasks: u8) -> f64 {
     match number_of_tasks {
@@ -116,7 +104,7 @@ fn competition_decay(days_since_competition: f64) -> f64 {
     1.0 / (1.0 + constants::TD_A.powf(n))
 }
 /// Calculate the decayed rankings for a date given past competition results
-fn calculate_rankings(
+pub fn calculate_rankings(
     ranking_date: &NaiveDate,
     competitions: &Vec<Competition>,
 ) -> Option<Vec<RankingPoint>> {
@@ -206,77 +194,76 @@ fn time_decayed_points(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    #[test]
-    fn recalculate_should_get_number() {
-        let data = data_access::load_data();
+    use anyhow::Result;
 
-        if let Some(mut root) = data {
-            root.competitions
-                .sort_by(|a, b| b.comp_date.cmp(&a.comp_date));
-            for competition in root.competitions.clone() {
-                let pn = participant_number(&competition, root.competitions.clone());
-                root.rankings.sort_by(|a, b| b.date.cmp(&a.date));
-                println!("{}", competition.comp_date);
-                let pq = pilot_quality(
-                    root.rankings.iter().find(|r| {
-                        let comp_date = competition.comp_date.parse::<NaiveDate>().unwrap();
-                        let rdate = &&r.date.parse::<NaiveDate>().unwrap();
-                        let two_years_earlier =
-                            comp_date.checked_sub_months(Months::new(24)).unwrap();
-                        two_years_earlier.lt(&rdate)
-                            && (comp_date.gt(&rdate) || comp_date.eq(&rdate))
-                    }),
-                    &competition.placings,
-                );
-                if let Some(pn) = pn {
-                    println!(
-                        "pn: {}:{} difference: {}",
-                        pn,
-                        competition.pn,
-                        (pn - (competition.pn)).abs()
-                    );
-                    //assert_eq!((pn - (competition.pn)).abs() < 0.00000001, true);
-                }
+    use super::*;
+    use crate::data_access;
+    #[test]
+    fn recalculate_should_get_number() -> Result<()> {
+        let mut root = data_access::load_data()?;
+        root.competitions
+            .sort_by(|a, b| b.comp_date.cmp(&a.comp_date));
+        for competition in root.competitions.clone() {
+            let pn = participant_number(&competition, root.competitions.clone());
+            root.rankings.sort_by(|a, b| b.date.cmp(&a.date));
+            println!("{}", competition.comp_date);
+            let pq = pilot_quality(
+                root.rankings.iter().find(|r| {
+                    let comp_date = competition.comp_date.parse::<NaiveDate>().unwrap();
+                    let rdate = &&r.date.parse::<NaiveDate>().unwrap();
+                    let two_years_earlier = comp_date.checked_sub_months(Months::new(24)).unwrap();
+                    two_years_earlier.lt(&rdate) && (comp_date.gt(&rdate) || comp_date.eq(&rdate))
+                }),
+                &competition.placings,
+            );
+
+            if let Some(pn) = pn {
                 println!(
-                    "pq: {}:{} difference: {}",
-                    pq,
-                    competition.pq,
-                    (pq - (competition.pq.as_f64().unwrap_or(1.0))).abs()
+                    "pn: {}:{} difference: {}",
+                    pn,
+                    competition.pn,
+                    (pn - (competition.pn)).abs()
                 );
-                // assert_eq!(
-                //     (pq - (competition.pq.as_f64().unwrap_or(1.0))).abs() < 0.00000001,
-                //     true
-                // );
+                //assert_eq!((pn - (competition.pn)).abs() < 0.00000001, true);
             }
+            println!(
+                "pq: {}:{} difference: {}",
+                pq,
+                competition.pq,
+                (pq - (competition.pq.as_f64().unwrap_or(1.0))).abs()
+            );
+            // assert_eq!(
+            //     (pq - (competition.pq.as_f64().unwrap_or(1.0))).abs() < 0.00000001,
+            //     true
+            // );
         }
+        Ok(())
     }
 
     #[test]
-    fn recalculate_should_get_good() {
-        let data = data_access::load_data();
-        if let Some(mut root) = data {
-            let pn = calculate_rankings(
-                &root.rankings[0].date.parse::<NaiveDate>().unwrap(),
-                &root.competitions,
-            );
-            println!("{} {}", &root.rankings[0].id, &root.rankings[0].date);
-            if let Some(mut pn) = pn {
-                pn.sort_by(|a, b| a.pilot_pin.cmp(&b.pilot_pin));
-                for point in pn {
-                    for existing_ranking in &root.rankings[0].ranking_points {
-                        if existing_ranking.pilot_pin == point.pilot_pin {
-                            println!("{} {}", point.pilot_pin, point.total_points);
-                            assert_eq!(
-                                (point.total_points - existing_ranking.total_points).abs()
-                                    < 0.00000001,
-                                true
-                            );
-                        }
+
+    fn recalculate_should_get_good() -> Result<()> {
+        let root = data_access::load_data()?;
+        let pn = calculate_rankings(
+            &root.rankings[0].date.parse::<NaiveDate>().unwrap(),
+            &root.competitions,
+        );
+        println!("{} {}", &root.rankings[0].id, &root.rankings[0].date);
+        if let Some(mut pn) = pn {
+            pn.sort_by(|a, b| a.pilot_pin.cmp(&b.pilot_pin));
+            for point in pn {
+                for existing_ranking in &root.rankings[0].ranking_points {
+                    if existing_ranking.pilot_pin == point.pilot_pin {
+                        println!("{} {}", point.pilot_pin, point.total_points);
+                        assert_eq!(
+                            (point.total_points - existing_ranking.total_points).abs() < 0.00000001,
+                            true
+                        );
                     }
                 }
             }
         }
+        Ok(())
     }
 
     #[test]
