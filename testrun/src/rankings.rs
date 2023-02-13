@@ -15,24 +15,22 @@ use std::thread::current;
 use serde_json::from_str;
 
 fn participant_number(
-    current_competition: Competition,
+    current_competition: &Competition,
     competition_history: Vec<Competition>,
 ) -> Option<f64> {
     // Get the date 2 years prior to the comp date
     let this_comp_date = current_competition.comp_date.parse::<NaiveDate>().ok()?;
     let two_years_earlier = this_comp_date.checked_sub_months(Months::new(24))?;
-    println!("{}", current_competition.pq.to_string());
     // Number of participants in this comp
     let num_participants = current_competition.placings.len() as f64;
 
     // Calc the average num participants in the last 24 months
-    let previous_competitions: Vec<f64> = competition_history
+    let previous_competition_placings: Vec<f64> = competition_history
         .iter()
-        .filter(|c| {
-            let other_comp_date = c.comp_date.parse::<NaiveDate>();
-            match other_comp_date {
+        .filter(|previous_competition| {
+            match previous_competition.comp_date.parse::<NaiveDate>() {
                 Ok(other_comp_date) => {
-                    !c.overseas
+                    !previous_competition.overseas // Exclude Overseas comps from the average because we just want the average num pilots at NZ comps
                         && other_comp_date.lt(&this_comp_date)
                         && other_comp_date.gt(&two_years_earlier)
                 }
@@ -41,26 +39,41 @@ fn participant_number(
         })
         .map(|c| c.placings.len() as f64)
         .collect();
-    let previous_count = previous_competitions.len() as f64;
-    let ave_num_participants: f64 = previous_competitions.iter().sum::<f64>() / previous_count;
-    let raw_pn = (num_participants / ave_num_participants).sqrt();
+    let previous_count = previous_competition_placings.len() as f64 + 1.0;
+    let ave_num_participants: f64 = (previous_competition_placings.iter().sum::<f64>()
+        + current_competition.placings.len() as f64)
+        / previous_count;
+    println!("{} / {}", num_participants, ave_num_participants);
+    let raw_pn = (num_participants / ave_num_participants).max(0.0).sqrt();
     Some(raw_pn.min(constants::PN_MAX))
 }
 
-fn pilot_quality(ranking: Option<&Ranking>, placings: Vec<Placing>) -> f64 {
+fn calculate_pilot_placing(competition: Competition, place: f64) -> f64 {
+    let last_place = competition.placings.len() as f64;
+    (last_place - place + 1.0) / last_place
+}
+
+fn pilot_quality(ranking: Option<&Ranking>, placings: &Vec<Placing>) -> f64 {
     match ranking {
         None => 1.0,
         Some(ranking) => {
-            // Get the most recent ranking points prior to this comp for these pilots and for top pilots.
-            let Pq_srp = Pq_srp(
-                placings.iter().map(|p| p.pilot.clone()).collect(),
-                ranking.ranking_points.clone(),
-            );
-            let Pq_srtp = Pq_srtp(
-                (placings.len() as f64 / 2.0).round(),
-                ranking.ranking_points.clone(),
-            );
-            Pq_srp / Pq_srtp * (1.0 - constants::PQ_MIN) + constants::PQ_MIN
+            println!("{}", ranking.date);
+            match placings[..] {
+                [] => constants::PQ_MIN,
+                _ => {
+                    // Get the most recent ranking points prior to this comp for these pilots and for top pilots.
+                    let Pq_srp = Pq_srp(
+                        placings.iter().map(|p| p.pilot.clone()).collect(),
+                        ranking.ranking_points.clone(),
+                    );
+                    let mut num = (placings.len() as f64 / 2.0).round();
+                    if (num > ranking.ranking_points.len() as f64) {
+                        num = ranking.ranking_points.len() as f64;
+                    }
+                    let Pq_srtp = Pq_srtp(num, ranking.ranking_points.clone());
+                    Pq_srp / Pq_srtp * (1.0 - constants::PQ_MIN) + constants::PQ_MIN
+                }
+            }
         }
     }
 }
@@ -197,13 +210,45 @@ mod tests {
     #[test]
     fn recalculate_should_get_number() {
         let data = data_access::load_data();
+
         if let Some(mut root) = data {
-            let pn = participant_number(root.competitions[9].clone(), root.competitions.clone());
-            let pq = pilot_quality(root.rankings.first(), root.competitions[9].clone().placings);
-            if let Some(pn) = pn {
-                println!("{}", pn.abs());
+            root.competitions
+                .sort_by(|a, b| b.comp_date.cmp(&a.comp_date));
+            for competition in root.competitions.clone() {
+                let pn = participant_number(&competition, root.competitions.clone());
+                root.rankings.sort_by(|a, b| b.date.cmp(&a.date));
+                println!("{}", competition.comp_date);
+                let pq = pilot_quality(
+                    root.rankings.iter().find(|r| {
+                        let comp_date = competition.comp_date.parse::<NaiveDate>().unwrap();
+                        let rdate = &&r.date.parse::<NaiveDate>().unwrap();
+                        let two_years_earlier =
+                            comp_date.checked_sub_months(Months::new(24)).unwrap();
+                        two_years_earlier.lt(&rdate)
+                            && (comp_date.gt(&rdate) || comp_date.eq(&rdate))
+                    }),
+                    &competition.placings,
+                );
+                if let Some(pn) = pn {
+                    println!(
+                        "pn: {}:{} difference: {}",
+                        pn,
+                        competition.pn,
+                        (pn - (competition.pn)).abs()
+                    );
+                    //assert_eq!((pn - (competition.pn)).abs() < 0.00000001, true);
+                }
+                println!(
+                    "pq: {}:{} difference: {}",
+                    pq,
+                    competition.pq,
+                    (pq - (competition.pq.as_f64().unwrap_or(1.0))).abs()
+                );
+                // assert_eq!(
+                //     (pq - (competition.pq.as_f64().unwrap_or(1.0))).abs() < 0.00000001,
+                //     true
+                // );
             }
-            println!("{}", pq.abs());
         }
     }
 
