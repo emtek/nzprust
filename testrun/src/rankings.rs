@@ -5,10 +5,9 @@ use chrono::prelude::*;
 use chrono::Months;
 use std::collections::HashMap;
 
-#[allow(dead_code)]
 fn participant_number(
     current_competition: &Competition,
-    competition_history: Vec<Competition>,
+    competition_history: &Vec<Competition>,
 ) -> Option<f64> {
     // Get the date 2 years prior to the comp date
     let this_comp_date = current_competition.comp_date.parse::<NaiveDate>().ok()?;
@@ -19,17 +18,18 @@ fn participant_number(
     // Calc the average num participants in the last 24 months
     let previous_competition_placings: Vec<f64> = competition_history
         .iter()
-        .filter(|previous_competition| {
-            match previous_competition.comp_date.parse::<NaiveDate>() {
-                Ok(other_comp_date) => {
-                    !previous_competition.overseas // Exclude Overseas comps from the average because we just want the average num pilots at NZ comps
+        .map(|previous_competition| {
+            if let Ok(other_comp_date) = previous_competition.comp_date.parse::<NaiveDate>() {
+                if previous_competition.overseas // Exclude Overseas comps from the average because we just want the average num pilots at NZ comps
                         && other_comp_date.lt(&this_comp_date)
                         && other_comp_date.gt(&two_years_earlier)
+                {
+                    return Some(previous_competition.placings.len() as f64);
                 }
-                Err(_) => false,
             }
+            None
         })
-        .map(|c| c.placings.len() as f64)
+        .flatten()
         .collect();
     let previous_count = previous_competition_placings.len() as f64 + 1.0;
     let ave_num_participants: f64 = (previous_competition_placings.iter().sum::<f64>()
@@ -40,8 +40,34 @@ fn participant_number(
     Some(raw_pn.min(constants::PN_MAX))
 }
 
-#[allow(dead_code)]
-fn calculate_pilot_placing(competition: Competition, place: f64) -> f64 {
+/// .
+pub fn recalculate_competition(
+    competition: &Competition,
+    ranking: Option<&Ranking>,
+    comps: &Vec<Competition>,
+    exchange_rate: f64,
+) -> Option<Competition> {
+    let mut updated_competition = competition.clone();
+    let pq = pilot_quality(ranking, &competition.placings);
+    updated_competition.pn = participant_number(competition, comps)?;
+    let mut max_points = 0.0;
+    for mut placing in updated_competition.placings.iter_mut() {
+        if competition.overseas {
+            placing.points = placing.fai_points * exchange_rate;
+        } else {
+            placing.points = calculate_pilot_placing(competition, placing.place as f64)
+                * pq
+                * updated_competition.pn
+                * competition_task_quality(competition.num_tasks as u8)
+                * 100.0;
+        }
+        max_points = placing.points.max(max_points);
+    }
+    updated_competition.comp_value = max_points;
+    Some(updated_competition)
+}
+
+fn calculate_pilot_placing(competition: &Competition, place: f64) -> f64 {
     let last_place = competition.placings.len() as f64;
     (last_place - place + 1.0) / last_place
 }
@@ -71,6 +97,7 @@ fn pilot_quality_srtp(num: f64, ranking_points: Vec<RankingPoint>) -> f64 {
         .take(num as usize)
         .sum()
 }
+
 /// Pilot quality
 fn pilot_quality_srp(pilots: Vec<Pilot2>, ranking_points: Vec<RankingPoint>) -> f64 {
     let mut points: Vec<f64> = ranking_points
@@ -86,7 +113,6 @@ fn pilot_quality_srp(pilots: Vec<Pilot2>, ranking_points: Vec<RankingPoint>) -> 
         .sum()
 }
 
-#[allow(dead_code)]
 /// Get the quality of the competition
 fn competition_task_quality(number_of_tasks: u8) -> f64 {
     match number_of_tasks {
@@ -198,44 +224,29 @@ mod tests {
 
     use super::*;
     use crate::data_access;
+
     #[test]
-    fn recalculate_should_get_number() -> Result<()> {
+    fn recalculate_comp_should_get_number() -> Result<()> {
         let mut root = data_access::load_data()?;
         root.competitions
             .sort_by(|a, b| b.comp_date.cmp(&a.comp_date));
         for competition in root.competitions.clone() {
-            let pn = participant_number(&competition, root.competitions.clone());
-            root.rankings.sort_by(|a, b| b.date.cmp(&a.date));
-            println!("{}", competition.comp_date);
-            let pq = pilot_quality(
+            let comp_val = recalculate_competition(
+                &competition,
                 root.rankings.iter().find(|r| {
                     let comp_date = competition.comp_date.parse::<NaiveDate>().unwrap();
                     let rdate = &&r.date.parse::<NaiveDate>().unwrap();
                     let two_years_earlier = comp_date.checked_sub_months(Months::new(24)).unwrap();
                     two_years_earlier.lt(&rdate) && (comp_date.gt(&rdate) || comp_date.eq(&rdate))
                 }),
-                &competition.placings,
+                &root.competitions,
+                competition.exchange_rate,
             );
-
-            if let Some(pn) = pn {
-                println!(
-                    "pn: {}:{} difference: {}",
-                    pn,
-                    competition.pn,
-                    (pn - (competition.pn)).abs()
-                );
-                //assert_eq!((pn - (competition.pn)).abs() < 0.00000001, true);
-            }
             println!(
-                "pq: {}:{} difference: {}",
-                pq,
-                competition.pq,
-                (pq - (competition.pq.as_f64().unwrap_or(1.0))).abs()
+                "{} - {}",
+                comp_val.unwrap().comp_value,
+                competition.comp_value
             );
-            // assert_eq!(
-            //     (pq - (competition.pq.as_f64().unwrap_or(1.0))).abs() < 0.00000001,
-            //     true
-            // );
         }
         Ok(())
     }
