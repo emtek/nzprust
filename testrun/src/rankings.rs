@@ -3,6 +3,7 @@ use crate::prs_data_types::{CompResult, Competition, Pilot2, Placing, Ranking, R
 
 use chrono::prelude::*;
 use chrono::Months;
+use serde_json::json;
 use std::collections::HashMap;
 
 fn participant_number(
@@ -20,7 +21,7 @@ fn participant_number(
         .iter()
         .map(|previous_competition| {
             if let Ok(other_comp_date) = previous_competition.comp_date.parse::<NaiveDate>() {
-                if previous_competition.overseas // Exclude Overseas comps from the average because we just want the average num pilots at NZ comps
+                if !previous_competition.overseas // Exclude Overseas comps from the average because we just want the average num pilots at NZ comps
                         && other_comp_date.lt(&this_comp_date)
                         && other_comp_date.gt(&two_years_earlier)
                 {
@@ -31,12 +32,12 @@ fn participant_number(
         })
         .flatten()
         .collect();
-    let previous_count = previous_competition_placings.len() as f64 + 1.0;
+    let previous_competition_count = previous_competition_placings.len() as f64 + 1.0;
     let ave_num_participants: f64 = (previous_competition_placings.iter().sum::<f64>()
-        + current_competition.placings.len() as f64)
-        / previous_count;
+        + num_participants)
+        / previous_competition_count;
     println!("{} / {}", num_participants, ave_num_participants);
-    let raw_pn = (num_participants / ave_num_participants).max(0.0).sqrt();
+    let raw_pn = (num_participants / ave_num_participants).sqrt();
     Some(raw_pn.min(constants::PN_MAX))
 }
 
@@ -45,17 +46,23 @@ pub fn recalculate_competition(
     competition: &Competition,
     ranking: Option<&Ranking>,
     comps: &Vec<Competition>,
-    exchange_rate: f64,
 ) -> Option<Competition> {
     let mut updated_competition = competition.clone();
     let pq = pilot_quality(ranking, &competition.placings);
+    updated_competition.pq = json!(pq);
+    println!("{}", pq);
     updated_competition.pn = participant_number(competition, comps)?;
     let mut max_points = 0.0;
     for mut placing in updated_competition.placings.iter_mut() {
         if competition.overseas {
-            placing.points = placing.fai_points * exchange_rate;
+            placing.points = placing.fai_points * competition.exchange_rate;
         } else {
-            placing.points = calculate_pilot_placing(competition, placing.place as f64)
+            placing.pplacing = calculate_pilot_placing(competition, placing.place as f64);
+            placing.pp = placing
+                .pplacing
+                .powf(1.0 + pq)
+                .max(placing.pplacing.powf(2.0));
+            placing.points = placing.pp
                 * pq
                 * updated_competition.pn
                 * competition_task_quality(competition.num_tasks as u8)
@@ -85,12 +92,25 @@ fn pilot_quality(ranking: Option<&Ranking>, placings: &Vec<Placing>) -> f64 {
                 (placings.len() as f64 / 2.0).round(),
                 ranking.ranking_points.clone(),
             );
+            if pq_srp == 0.0 || pq_srtp == 0.0 {
+                return (1.0 - constants::PQ_MIN) + constants::PQ_MIN;
+            }
             pq_srp / pq_srtp * (1.0 - constants::PQ_MIN) + constants::PQ_MIN
         }
     }
 }
 
 fn pilot_quality_srtp(num: f64, ranking_points: Vec<RankingPoint>) -> f64 {
+    // let mut points = 0.0;
+    // let mut newNum = num.clone() as usize;
+    // if (newNum > ranking_points.len()) {
+    //     newNum = ranking_points.len();
+    // }
+    // let topNum = ranking_points.iter().take(newNum);
+    // for rp in topNum {
+    //     points += rp.total_points;
+    // }
+    // points
     ranking_points
         .iter()
         .map(|rp| rp.total_points)
@@ -100,9 +120,25 @@ fn pilot_quality_srtp(num: f64, ranking_points: Vec<RankingPoint>) -> f64 {
 
 /// Pilot quality
 fn pilot_quality_srp(pilots: Vec<Pilot2>, ranking_points: Vec<RankingPoint>) -> f64 {
+    // let mut points: Vec<f64> = [].to_vec();
+    // for p in pilots.clone() {
+    //     for rp in ranking_points.clone() {
+    //         if (rp.pilot_pin.cmp(&p.pin).is_eq()) {
+    //             points.push(rp.total_points.clone());
+    //             break;
+    //         }
+    //     }
+    // }
+    // points.sort_by(|a, b| b.total_cmp(&a));
+    // let topHalfNum: usize = (points.len() as f64 / 2.0).round() as usize;
+    // let mut totalPoints = 0.0;
+    // for d in points.iter().take(topHalfNum) {
+    //     totalPoints += d;
+    // }
+    // totalPoints
     let mut points: Vec<f64> = ranking_points
         .iter()
-        .filter(|rp| pilots.iter().any(|p| p.pin == rp.pilot_pin))
+        .filter(|rp| pilots.iter().any(|p| p.pin.cmp(&rp.pilot_pin).is_eq()))
         .map(|rp| rp.total_points)
         .collect();
     points.sort_by(|a, b| b.total_cmp(a));
@@ -136,53 +172,52 @@ pub fn calculate_rankings(
 ) -> Option<Vec<RankingPoint>> {
     // Get the date 3 years prior to the ranking date
     let three_years_earlier = ranking_date.checked_sub_months(Months::new(36))?;
-
-    Some(
-        competitions
-            .iter()
-            // Cycle through each comp within the last 3 years
-            .filter(|c| {
-                let other_comp_date = c.comp_date.parse::<NaiveDate>();
-                match other_comp_date {
-                    Ok(date) => date.gt(&three_years_earlier) && date.lt(ranking_date),
-                    _ => false,
-                }
-            })
-            .flat_map(|competition| {
-                competition
-                    .placings
-                    .iter()
-                    .map(|placing| time_decayed_points(competition, placing, ranking_date))
-                    .flatten()
-            })
-            .fold(
-                HashMap::new(),
-                |mut pin_results: HashMap<String, Vec<CompResult>>,
-                 pin_result: (String, CompResult)| {
-                    match pin_results.get_mut(&pin_result.0) {
-                        Some(results) => {
-                            results.push(pin_result.1.clone());
-                            results.sort_by(|a, b| b.points.total_cmp(&a.points));
-                            remove_extra_overseas(results);
-                        }
-                        None => {
-                            pin_results.insert(pin_result.0, [pin_result.1.clone()].to_vec());
-                        }
-                    };
-                    pin_results
-                },
-            )
-            .iter()
-            .map(|pin_results| RankingPoint {
-                pilot_first_name: pin_results.0.clone(),
-                pilot_gender: None,
-                pilot_last_name: pin_results.0.clone(),
-                pilot_pin: pin_results.0.clone(),
-                results: pin_results.1.clone(),
-                total_points: pin_results.1.iter().take(4).map(|r| r.points).sum(),
-            })
-            .collect(),
-    )
+    let mut rankings: Vec<RankingPoint> = competitions
+        .iter()
+        // Cycle through each comp within the last 3 years
+        .filter(|c| {
+            let other_comp_date = c.comp_date.parse::<NaiveDate>();
+            match other_comp_date {
+                Ok(date) => date.gt(&three_years_earlier) && date.lt(ranking_date),
+                _ => false,
+            }
+        })
+        .flat_map(|competition| {
+            competition
+                .placings
+                .iter()
+                .map(|placing| time_decayed_points(competition, placing, ranking_date))
+                .flatten()
+        })
+        .fold(
+            HashMap::new(),
+            |mut pin_results: HashMap<String, Vec<CompResult>>,
+             pin_result: (String, CompResult)| {
+                match pin_results.get_mut(&pin_result.0) {
+                    Some(results) => {
+                        results.push(pin_result.1.clone());
+                        results.sort_by(|a, b| b.points.total_cmp(&a.points));
+                        remove_extra_overseas(results);
+                    }
+                    None => {
+                        pin_results.insert(pin_result.0, [pin_result.1.clone()].to_vec());
+                    }
+                };
+                pin_results
+            },
+        )
+        .iter()
+        .map(|pin_results| RankingPoint {
+            pilot_first_name: pin_results.0.clone(),
+            pilot_gender: None,
+            pilot_last_name: pin_results.0.clone(),
+            pilot_pin: pin_results.0.clone(),
+            results: pin_results.1.clone(),
+            total_points: pin_results.1.iter().take(4).map(|r| r.points).sum(),
+        })
+        .collect();
+    rankings.sort_by(|a, b| b.total_points.total_cmp(&a.total_points));
+    Some(rankings)
 }
 
 /// Remove any extra overseas competitions keeping the most valuable 2
@@ -220,10 +255,13 @@ fn time_decayed_points(
 
 #[cfg(test)]
 mod tests {
+    use std::hash::Hash;
+
     use anyhow::Result;
+    use serde_json::{json, Value};
 
     use super::*;
-    use crate::data_access;
+    use crate::{data_access, prs_data_types::Pilot};
 
     #[test]
     fn recalculate_comp_should_get_number() -> Result<()> {
@@ -240,13 +278,15 @@ mod tests {
                     two_years_earlier.lt(&rdate) && (comp_date.gt(&rdate) || comp_date.eq(&rdate))
                 }),
                 &root.competitions,
-                competition.exchange_rate,
             );
-            println!(
-                "{} - {}",
-                comp_val.unwrap().comp_value,
-                competition.comp_value
-            );
+            if let Some(comp) = comp_val {
+                if (comp.comp_value - competition.comp_value).abs() > 0.00000001 {
+                    println!(
+                        "{} | {} - {}",
+                        competition.name, comp.comp_value, competition.comp_value
+                    );
+                }
+            }
         }
         Ok(())
     }
@@ -282,5 +322,405 @@ mod tests {
         assert_eq!(competition_decay(10.0), 0.99889299013837107);
         assert_eq!(competition_decay(549.0), 0.49683787436410787);
         assert_eq!(competition_decay(1086.0), 0.0011070098616289667);
+    }
+
+    #[test]
+    fn pq_no_ranking() {
+        let (_, _, competitions) = get_test_data();
+        for comp in &competitions {
+            let pq = pilot_quality(None, &comp.placings);
+            assert_eq!(pq, 1.0);
+        }
+    }
+
+    #[test]
+    fn pq_with_ranking() {
+        let (mut rankings, _, competitions) = get_test_data();
+        // Now create a ranking and check again
+        let ranking = Ranking {
+            id: "2013-09-10".to_string(),
+            date: "2013-09-10".to_string(),
+            ranking_points: calculate_rankings(
+                &"2013-09-10".to_string().parse::<NaiveDate>().unwrap(),
+                &competitions,
+            )
+            .unwrap(),
+        };
+
+        rankings.push(ranking);
+        let result = recalculate_all(rankings, competitions);
+        result.iter().for_each(|c| match c {
+            CompetitionOrRanking::Competition(c) => {
+                println!("{} {} {}", c.name, c.comp_date, c.pq);
+                if c.comp_date == "2013-09-09" {
+                    assert_eq!(1.0, c.pq);
+                } else if c.comp_date == "2014-10-05" {
+                    assert_eq!(1.0, c.pq);
+                } else if c.comp_date == "2015-08-03" {
+                    assert_eq!(0.7464150943396228, c.pq);
+                }
+            }
+            CompetitionOrRanking::Ranking(r) => {
+                for p in &r.ranking_points {
+                    println!("{} {} {}", p.pilot_first_name, p.pilot_pin, p.total_points);
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn test_pn() {
+        let (_, _, competitions) = get_test_data();
+        assert_eq!(
+            1.0,
+            participant_number(&competitions[0], &competitions).unwrap()
+        );
+        assert_eq!(
+            0.7669649888473704,
+            participant_number(&competitions[1], &competitions).unwrap()
+        );
+        assert_eq!(
+            0.7559289460184544,
+            participant_number(&competitions[2], &competitions).unwrap()
+        );
+    }
+
+    fn test_pplacing() {
+
+        // assertEquals(0.6666, TestData.pilot1.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(1.0, TestData.pilot2.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.9166, TestData.pilot3.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.75, TestData.pilot4.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.8333, TestData.pilot5.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.5, TestData.pilot6.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.5833, TestData.pilot7.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.4166, TestData.pilot8.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.3333, TestData.pilot9.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.25, TestData.pilot10.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.1666, TestData.pilot11.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.0833, TestData.pilot12.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
+        // assertEquals(0.8, TestData.pilot1.getPlacingForComp(TestData.wanaka).getPplacing(), 0.0001);
+        // assertEquals(0.6, TestData.pilot2.getPlacingForComp(TestData.wanaka).getPplacing(), 0.0001);
+        // assertEquals(1.0, TestData.pilot3.getPlacingForComp(TestData.wanaka).getPplacing(), 0.0001);
+        // assertEquals(0.4, TestData.pilot4.getPlacingForComp(TestData.wanaka).getPplacing(), 0.0001);
+        // assertEquals(0.2, TestData.pilot5.getPlacingForComp(TestData.wanaka).getPplacing(), 0.0001);
+        // assertEquals(1.0, TestData.pilot9.getPlacingForComp(TestData.waikato).getPplacing(), 0.0001);
+        // assertEquals(0.75, TestData.pilot12.getPlacingForComp(TestData.waikato).getPplacing(), 0.0001);
+        // assertEquals(0.5, TestData.pilot4.getPlacingForComp(TestData.waikato).getPplacing(), 0.0001);
+        // assertEquals(0.25, TestData.pilot5.getPlacingForComp(TestData.waikato).getPplacing(), 0.0001);
+    }
+
+    #[derive(Clone)]
+    enum CompetitionOrRanking {
+        Ranking(Ranking),
+        Competition(Competition),
+    }
+
+    fn recalculate_all(
+        rankings: Vec<Ranking>,
+        competitions: Vec<Competition>,
+    ) -> Vec<CompetitionOrRanking> {
+        // Put all comps and rankings into the events tree map so that they
+        // can be iterated in chronological order
+        let mut joined: Vec<(String, CompetitionOrRanking)> = rankings
+            .iter()
+            .map(|r| (r.date.clone(), CompetitionOrRanking::Ranking(r.clone())))
+            .collect::<Vec<(String, CompetitionOrRanking)>>();
+        let mut competitionMap = competitions
+            .iter()
+            .map(|r| {
+                (
+                    r.comp_date.clone(),
+                    CompetitionOrRanking::Competition(r.clone()),
+                )
+            })
+            .collect::<Vec<(String, CompetitionOrRanking)>>();
+        joined.append(competitionMap.as_mut());
+        joined.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut previousRanking: Option<Ranking> = None;
+        let mut competitionNew = joined
+            .iter()
+            .map(|f| f.clone())
+            .collect::<HashMap<String, CompetitionOrRanking>>();
+        for o in joined {
+            match o.1 {
+                CompetitionOrRanking::Competition(comp) => {
+                    let newcomp = recalculate_competition(
+                        &comp,
+                        previousRanking.as_ref(),
+                        &competitionNew
+                            .clone()
+                            .into_values()
+                            .map(|c| match c {
+                                CompetitionOrRanking::Competition(comp) => Some(comp),
+                                _ => None,
+                            })
+                            .flatten()
+                            .collect(),
+                    );
+
+                    if let Some(c) = newcomp {
+                        competitionNew.insert(
+                            c.comp_date.clone(),
+                            CompetitionOrRanking::Competition(c.clone()),
+                        );
+                    }
+                }
+                CompetitionOrRanking::Ranking(ranking) => {
+                    let rankingPoints = calculate_rankings(
+                        &ranking.date.parse::<NaiveDate>().unwrap(),
+                        &competitions,
+                    );
+                    if let Some(points) = rankingPoints {
+                        let mut r = ranking.clone();
+                        r.ranking_points = points;
+                        competitionNew
+                            .insert(r.date.clone(), CompetitionOrRanking::Ranking(r.clone()));
+                        previousRanking = Some(r.clone());
+                    }
+                }
+            }
+        }
+        competitionNew.clone().into_values().collect()
+    }
+
+    fn get_test_data() -> (Vec<Ranking>, Vec<Pilot>, Vec<Competition>) {
+        let pilots: Vec<Pilot> = [
+            Pilot {
+                pin: "1001".to_string(),
+                first_name: "First".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1002".to_string(),
+                first_name: "Second".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1003".to_string(),
+                first_name: "Third".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1004".to_string(),
+                first_name: "Fourth".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1005".to_string(),
+                first_name: "Fifth".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1006".to_string(),
+                first_name: "Sixth".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1007".to_string(),
+                first_name: "Seventh".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1008".to_string(),
+                first_name: "Eighth".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1009".to_string(),
+                first_name: "Nineth".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1010".to_string(),
+                first_name: "Tenth".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1011".to_string(),
+                first_name: "Eleventh".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+            Pilot {
+                pin: "1012".to_string(),
+                first_name: "Twelth".to_string(),
+                last_name: "Pilot".to_string(),
+                gender: "None".to_string(),
+            },
+        ]
+        .to_vec();
+        let auck_comp_placing_map: HashMap<String, i64> = HashMap::from_iter([
+            ("1001".to_string(), 5),
+            ("1002".to_string(), 1),
+            ("1003".to_string(), 2),
+            ("1004".to_string(), 4),
+            ("1005".to_string(), 3),
+            ("1006".to_string(), 7),
+            ("1007".to_string(), 6),
+            ("1008".to_string(), 8),
+            ("1009".to_string(), 9),
+            ("1010".to_string(), 10),
+            ("1011".to_string(), 11),
+            ("1012".to_string(), 12),
+        ]);
+        let wanaka_comp_placing_map: HashMap<String, i64> = HashMap::from_iter([
+            ("1001".to_string(), 2),
+            ("1002".to_string(), 3),
+            ("1003".to_string(), 1),
+            ("1004".to_string(), 4),
+            ("1005".to_string(), 5),
+        ]);
+        let waikato_comp_placing_map: HashMap<String, i64> = HashMap::from_iter([
+            ("1004".to_string(), 3),
+            ("1005".to_string(), 4),
+            ("1009".to_string(), 1),
+            ("1012".to_string(), 2),
+        ]);
+        let mut comps: Vec<Competition> = Vec::new();
+        let auckland = recalculate_competition(
+            &Competition {
+                id: "2013-09-09-Auckland".to_string(),
+                name: "Auckland Regional Nov 2013".to_string(),
+                location: "Auckland".to_string(),
+                comp_date: "2013-09-09".to_string(),
+                overseas: false,
+                exchange_rate: 1.0,
+                num_tasks: 1,
+                pn: 0.0,
+                pq: json!(0.0),
+                ave_num_participants: 1.0,
+                ta: 0.0,
+                comp_value: 0.0,
+                td: 0.0,
+                placings: pilots
+                    .iter()
+                    .filter(|p| auck_comp_placing_map.contains_key(&p.pin))
+                    .enumerate()
+                    .map(|(i, p)| Placing {
+                        pilot: Pilot2 {
+                            pin: p.pin.clone(),
+                            first_name: p.first_name.clone(),
+                            last_name: p.last_name.clone(),
+                            gender: p.gender.clone(),
+                        },
+                        place: auck_comp_placing_map[&p.pin],
+                        points: 0.0,
+                        id: i as i64,
+                        pplacing: 0.0,
+                        fai_points: 0.0,
+                        pp: 0.0,
+                    })
+                    .collect(),
+            },
+            None,
+            &comps,
+        );
+        if let Some(comp) = auckland {
+            comps.push(comp);
+        }
+        let wanaka = recalculate_competition(
+            &Competition {
+                id: "2014-10-05-Wanaka".to_string(),
+                name: "Wanaka".to_string(),
+                location: "Wanaka".to_string(),
+                comp_date: "2014-10-05".to_string(),
+                overseas: false,
+                exchange_rate: 1.0,
+                num_tasks: 2,
+                pn: 0.0,
+                pq: json!(0.0),
+                ave_num_participants: 1.0,
+                ta: 0.0,
+                comp_value: 0.0,
+                td: 0.0,
+                placings: pilots
+                    .iter()
+                    .filter(|p| wanaka_comp_placing_map.contains_key(&p.pin))
+                    .enumerate()
+                    .map(|(i, p)| Placing {
+                        pilot: Pilot2 {
+                            pin: p.pin.clone(),
+                            first_name: p.first_name.clone(),
+                            last_name: p.last_name.clone(),
+                            gender: p.gender.clone(),
+                        },
+                        place: wanaka_comp_placing_map[&p.pin],
+                        points: 0.0,
+                        id: i as i64,
+                        pplacing: 0.0,
+                        fai_points: 0.0,
+                        pp: 0.0,
+                    })
+                    .collect(),
+            },
+            None,
+            &comps,
+        );
+        if let Some(comp) = wanaka {
+            comps.push(comp);
+        }
+        let waikato = recalculate_competition(
+            &Competition {
+                id: "2015-08-03-Waikato".to_string(),
+                name: "Waikato".to_string(),
+                location: "Waikato".to_string(),
+                comp_date: "2015-08-03".to_string(),
+                overseas: false,
+                exchange_rate: 1.0,
+                num_tasks: 6,
+                pn: 0.0,
+                pq: json!(0.0),
+                ave_num_participants: 1.0,
+                ta: 0.0,
+                comp_value: 0.0,
+                td: 0.0,
+                placings: pilots
+                    .iter()
+                    .filter(|p| waikato_comp_placing_map.contains_key(&p.pin))
+                    .enumerate()
+                    .map(|(i, p)| Placing {
+                        pilot: Pilot2 {
+                            pin: p.pin.clone(),
+                            first_name: p.first_name.clone(),
+                            last_name: p.last_name.clone(),
+                            gender: p.gender.clone(),
+                        },
+                        place: waikato_comp_placing_map[&p.pin],
+                        points: 0.0,
+                        id: i as i64,
+                        pplacing: 0.0,
+                        fai_points: 0.0,
+                        pp: 0.0,
+                    })
+                    .collect(),
+            },
+            None,
+            &comps,
+        );
+        if let Some(comp) = waikato {
+            comps.push(comp);
+        }
+        let ranking = Ranking {
+            date: "2013-09-09".to_string(),
+            id: "2013-09-09".to_string(),
+            ranking_points: calculate_rankings(
+                &"2013-09-09".to_string().parse::<NaiveDate>().unwrap(),
+                &comps,
+            )
+            .unwrap(),
+        };
+
+        ([ranking].to_vec(), pilots, comps)
     }
 }

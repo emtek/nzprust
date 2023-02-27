@@ -7,10 +7,58 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug",
-            "program": "${workspaceFolder}/<executable file>",
+            "name": "Debug executable 'testrun'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=testrun",
+                    "--package=testrun"
+                ],
+                "filter": {
+                    "name": "testrun",
+                    "kind": "bin"
+                }
+            },
             "args": [],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}/testrun/",
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'testrun'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=testrun",
+                    "--package=testrun"
+                ],
+                "filter": {
+                    "name": "testrun",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}/testrun"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'ranking_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=ranking_tests",
+                    "--package=testrun"
+                ],
+                "filter": {
+                    "name": "ranking_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}/testrun"
         }
     ]
 }
