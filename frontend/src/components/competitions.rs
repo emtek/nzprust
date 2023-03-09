@@ -1,36 +1,17 @@
-use std::future::Future;
-
 use crate::{
-    data::prs_data_types::{self, Competition},
+    components::progress_bar::Progress, data::prs_data_types::Competition, data::*,
     routes::AppRoute,
 };
-use reqwest;
-use serde_json::{self, from_str};
 use yew::prelude::*;
 use yew_hooks::use_async;
 use yew_router::prelude::Link;
 
-#[derive(Properties, PartialEq)]
-pub struct CompetitionListProps {
-    pub take: i32,
-}
-
 async fn get_competitions() -> Result<Vec<Competition>, MultiError> {
-    let r = reqwest::get("http://127.0.0.1:8000/competitions")
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
-    let competitions = from_str::<Vec<Competition>>(&r);
-    match competitions {
-        Ok(competitions) => Ok(competitions),
-        Err(_) => Err(MultiError::DeserializeError),
-    }
+    get_data("/competitions".to_string()).await
 }
 
 #[function_component(CompetitionList)]
-pub fn competition_list(props: &CompetitionListProps) -> Html {
+pub fn competition_list() -> Html {
     let competitions = use_async(async move { get_competitions().await });
 
     if let Some(competitions) = &competitions.data {
@@ -70,7 +51,6 @@ pub fn competition_list(props: &CompetitionListProps) -> Html {
                             <td>{&competition.num_tasks}</td>
                             <td>{&competition.ta}</td>
                             <td>{&competition.comp_value}</td>
-
                         </tr>
                     }).collect::<Html>()
                 }
@@ -84,11 +64,7 @@ pub fn competition_list(props: &CompetitionListProps) -> Html {
             competitions.run();
         }
         html! {
-            <div class="container">
-                <div class="is-one-third">
-                    <progress class="progress is-info" max="100"></progress>
-                </div>
-            </div>
+            <Progress/>
         }
     }
 }
@@ -99,17 +75,7 @@ pub struct CompetitionDetailProps {
 }
 
 async fn get_competition(id: String) -> Result<Competition, MultiError> {
-    let r = reqwest::get(format!("http://127.0.0.1:8000/competition/{}", id))
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
-    let competitions = from_str::<Competition>(&r);
-    match competitions {
-        Ok(competitions) => Ok(competitions),
-        Err(_) => Err(MultiError::DeserializeError),
-    }
+    get_data(format!("/competition/{}", id)).await
 }
 
 #[function_component(CompetitionDetail)]
@@ -167,19 +133,7 @@ pub fn competition_list(props: &CompetitionDetailProps) -> Html {
             competition.run();
         }
         html! {
-            <div class="container">
-                <div class="is-one-third">
-                    <progress class="progress is-info" max="100"></progress>
-                </div>
-            </div>
+            <Progress/>
         }
     }
-}
-
-// You can use thiserror to define your errors.
-#[derive(Clone, Debug, PartialEq)]
-enum MultiError {
-    RequestError,
-    DeserializeError,
-    // etc.
 }

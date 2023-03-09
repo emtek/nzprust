@@ -101,16 +101,6 @@ fn pilot_quality(ranking: Option<&Ranking>, placings: &Vec<Placing>) -> f64 {
 }
 
 fn pilot_quality_srtp(num: f64, ranking_points: Vec<RankingPoint>) -> f64 {
-    // let mut points = 0.0;
-    // let mut newNum = num.clone() as usize;
-    // if (newNum > ranking_points.len()) {
-    //     newNum = ranking_points.len();
-    // }
-    // let topNum = ranking_points.iter().take(newNum);
-    // for rp in topNum {
-    //     points += rp.total_points;
-    // }
-    // points
     ranking_points
         .iter()
         .map(|rp| rp.total_points)
@@ -120,22 +110,6 @@ fn pilot_quality_srtp(num: f64, ranking_points: Vec<RankingPoint>) -> f64 {
 
 /// Pilot quality
 fn pilot_quality_srp(pilots: Vec<Pilot2>, ranking_points: Vec<RankingPoint>) -> f64 {
-    // let mut points: Vec<f64> = [].to_vec();
-    // for p in pilots.clone() {
-    //     for rp in ranking_points.clone() {
-    //         if (rp.pilot_pin.cmp(&p.pin).is_eq()) {
-    //             points.push(rp.total_points.clone());
-    //             break;
-    //         }
-    //     }
-    // }
-    // points.sort_by(|a, b| b.total_cmp(&a));
-    // let topHalfNum: usize = (points.len() as f64 / 2.0).round() as usize;
-    // let mut totalPoints = 0.0;
-    // for d in points.iter().take(topHalfNum) {
-    //     totalPoints += d;
-    // }
-    // totalPoints
     let mut points: Vec<f64> = ranking_points
         .iter()
         .filter(|rp| pilots.iter().any(|p| p.pin.cmp(&rp.pilot_pin).is_eq()))
@@ -255,10 +229,8 @@ fn time_decayed_points(
 
 #[cfg(test)]
 mod tests {
-    use std::hash::Hash;
-
     use anyhow::Result;
-    use serde_json::{json, Value};
+    use serde_json::json;
 
     use super::*;
     use crate::{data_access, prs_data_types::Pilot};
@@ -385,6 +357,7 @@ mod tests {
         );
     }
 
+    #[allow(dead_code)]
     fn test_pplacing() {
 
         // assertEquals(0.6666, TestData.pilot1.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
@@ -426,7 +399,7 @@ mod tests {
             .iter()
             .map(|r| (r.date.clone(), CompetitionOrRanking::Ranking(r.clone())))
             .collect::<Vec<(String, CompetitionOrRanking)>>();
-        let mut competitionMap = competitions
+        let mut competition_map = competitions
             .iter()
             .map(|r| {
                 (
@@ -435,10 +408,10 @@ mod tests {
                 )
             })
             .collect::<Vec<(String, CompetitionOrRanking)>>();
-        joined.append(competitionMap.as_mut());
+        joined.append(competition_map.as_mut());
         joined.sort_by(|a, b| a.0.cmp(&b.0));
-        let mut previousRanking: Option<Ranking> = None;
-        let mut competitionNew = joined
+        let mut previous_ranking: Option<Ranking> = None;
+        let mut competition_new = joined
             .iter()
             .map(|f| f.clone())
             .collect::<HashMap<String, CompetitionOrRanking>>();
@@ -447,8 +420,8 @@ mod tests {
                 CompetitionOrRanking::Competition(comp) => {
                     let newcomp = recalculate_competition(
                         &comp,
-                        previousRanking.as_ref(),
-                        &competitionNew
+                        previous_ranking.as_ref(),
+                        &competition_new
                             .clone()
                             .into_values()
                             .map(|c| match c {
@@ -460,28 +433,28 @@ mod tests {
                     );
 
                     if let Some(c) = newcomp {
-                        competitionNew.insert(
+                        competition_new.insert(
                             c.comp_date.clone(),
                             CompetitionOrRanking::Competition(c.clone()),
                         );
                     }
                 }
                 CompetitionOrRanking::Ranking(ranking) => {
-                    let rankingPoints = calculate_rankings(
+                    let ranking_points = calculate_rankings(
                         &ranking.date.parse::<NaiveDate>().unwrap(),
                         &competitions,
                     );
-                    if let Some(points) = rankingPoints {
+                    if let Some(points) = ranking_points {
                         let mut r = ranking.clone();
                         r.ranking_points = points;
-                        competitionNew
+                        competition_new
                             .insert(r.date.clone(), CompetitionOrRanking::Ranking(r.clone()));
-                        previousRanking = Some(r.clone());
+                        previous_ranking = Some(r.clone());
                     }
                 }
             }
         }
-        competitionNew.clone().into_values().collect()
+        competition_new.clone().into_values().collect()
     }
 
     fn get_test_data() -> (Vec<Ranking>, Vec<Pilot>, Vec<Competition>) {

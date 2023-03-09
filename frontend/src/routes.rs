@@ -1,11 +1,14 @@
 use crate::components::{
     about::About,
     competitions::{CompetitionDetail, CompetitionList},
+    create_competition::CompetitionCreate,
     nav_bar::Navbar,
-    pilot_ranking::{PilotDetail, PilotList},
+    not_found::NotFound,
+    pilots::{PilotDetail, PilotList},
     ranking::RankingDetail,
 };
-use chrono::Utc;
+
+use chrono::NaiveDate;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -15,6 +18,8 @@ pub enum AppRoute {
     CompetitionList,
     #[at("/competition/:id")]
     CompetitionDetail { id: String },
+    #[at("/competition/new")]
+    CompetitionNew,
     #[at("/pilots")]
     PilotList,
     #[at("/pilots/:pin")]
@@ -22,7 +27,7 @@ pub enum AppRoute {
     #[at("/rankings")]
     RankingList,
     #[at("/ranking/:date")]
-    RankingDetail { date: String },
+    RankingDetail { date: NaiveDate },
     #[at("/about")]
     About,
     #[at("/")]
@@ -34,11 +39,20 @@ pub enum AppRoute {
 
 pub fn switch(routes: AppRoute) -> Html {
     match routes {
+        AppRoute::Index => {
+            let date = chrono::Utc::now();
+            html! {
+            <>
+                <Navbar />
+                <RankingDetail date={date.date_naive()}/>
+            </>
+            }
+        }
         AppRoute::CompetitionList => {
             html! {
                 <>
                 <Navbar/>
-                <CompetitionList take=1/>
+                <CompetitionList/>
                 </>
             }
         }
@@ -50,11 +64,19 @@ pub fn switch(routes: AppRoute) -> Html {
                 </>
             }
         }
+        AppRoute::CompetitionNew => {
+            html! {
+                <>
+                <Navbar/>
+                <CompetitionCreate/>
+                </>
+            }
+        }
         AppRoute::PilotDetail { pin } => html! { <div><Navbar/><PilotDetail pin={pin}/></div> },
         AppRoute::PilotList => {
             html! { <>
                 <Navbar/>
-                <PilotList take=1/>
+                <PilotList/>
                 </>
             }
         }
@@ -69,14 +91,11 @@ pub fn switch(routes: AppRoute) -> Html {
             html! {
                 <>
                 <Navbar />
-                <RankingDetail date={date.format("%Y-%m-01").to_string()}/>
+                <RankingDetail date={date.date_naive()}/>
                 </>
             }
         }
         AppRoute::About => html! { <div><Navbar/><About/></div> },
-        AppRoute::NotFound => html! { <h1>{ "404" }</h1> },
-        AppRoute::Index => html! {
-            <Navbar />
-        },
+        AppRoute::NotFound => html! { <><Navbar/><NotFound/></> },
     }
 }

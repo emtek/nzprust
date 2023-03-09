@@ -1,5 +1,8 @@
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use validator::{Validate, ValidationError};
+use yewdux::store::Store;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,15 +22,26 @@ pub struct Pilot {
     pub gender: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+fn validate_date(date: &str) -> Result<(), ValidationError> {
+    match date.parse::<NaiveDate>() {
+        Err(_) => Err(ValidationError::new("Please enter date")),
+        Ok(_) => Ok(()),
+    }
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Store, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Competition {
     pub id: String,
+    #[validate(length(min = 3, max = 300, message = "Must be longer than 3 characters"))]
     pub name: String,
+    #[validate(length(min = 3, max = 300, message = "Must be longer than 3 characters"))]
     pub location: String,
     pub overseas: bool,
     pub exchange_rate: f64,
+    #[validate(custom = "validate_date")]
     pub comp_date: String,
+    #[validate(range(min = 1, max = 10))]
     pub num_tasks: i64,
     pub ave_num_participants: f64,
     pub placings: Vec<Placing>,
