@@ -8,7 +8,7 @@ use axum::{
 use chrono::{Months, NaiveDate};
 use data::data_access::*;
 use data::highcloud_data_types::HighCloudRoot;
-use frontend::prs_data_types::{Competition, Pilot2, Placing};
+use frontend::prs_data_types::{Competition, CompetitionPilot, Placing};
 use std::{net::SocketAddr, path::PathBuf};
 use tower_http::services::ServeFile;
 use validator::Validate;
@@ -94,7 +94,7 @@ async fn from_highcloud(Path(comp_id): extract::Path<i32>) -> Response {
                     .iter()
                     .map(|v| Placing {
                         place: v.get(0).unwrap().as_i64().unwrap(),
-                        pilot: Pilot2 {
+                        pilot: CompetitionPilot {
                             pin: v.get(1).unwrap().as_str().unwrap().to_string(),
                             first_name: v.get(3).unwrap().as_str().unwrap().to_string(),
                             last_name: v.get(3).unwrap().as_str().unwrap().to_string(),
@@ -292,7 +292,7 @@ mod tests {
             td: 0.0,
             placings: vec![Placing {
                 id: 1,
-                pilot: Pilot2 {
+                pilot: CompetitionPilot {
                     pin: "5410".to_string(),
                     first_name: "name".to_string(),
                     last_name: "last".to_string(),
@@ -327,7 +327,7 @@ mod tests {
             td: 0.0,
             placings: vec![Placing {
                 id: 1,
-                pilot: Pilot2 {
+                pilot: CompetitionPilot {
                     pin: "5410".to_string(),
                     first_name: "name".to_string(),
                     last_name: "last".to_string(),

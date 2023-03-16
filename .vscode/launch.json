@@ -7,56 +7,47 @@
         {
             "type": "lldb",
             "request": "launch",
-            "preLaunchTask": "cwd",
-            "name": "Debug executable 'testrun'",
+            "terminal": "console",
+            "name": "Debug",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=testrun",
-                    "--package=testrun"
+                    "--bin=backend",
+                    "--package=backend",
+                    "--manifest-path=${workspaceFolder}/backend/Cargo.toml"
                 ],
                 "filter": {
-                    "name": "testrun",
+                    "name": "backend",
                     "kind": "bin"
                 }
             },
             "args": [],
-            "cwd": "${workspaceFolder}/testrun",
+            "cwd": "${workspaceFolder}/backend",
+        },
+        {
+            "name": "Launch frontend",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "./debug.ps1",
+            "cwd": "${cwd}/frontend"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "cwd",
-            "cargo": {
-                "args": [
-                    "-C /testrun"
-                ],
-                "filter": {
-                    "name": "testrun",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug integration test 'ranking_tests'",
+            "terminal": "console",
+            "name": "Debug tests",
             "cargo": {
                 "args": [
                     "test",
-                    "--no-run",
-                    "--test=ranking_tests",
-                    "--package=testrun"
+                    "--manifest-path=${workspaceFolder}/backend/Cargo.toml"
                 ],
                 "filter": {
-                    "name": "ranking_tests",
-                    "kind": "test"
+                    "name": "backend",
+                    "kind": "bin"
                 }
             },
             "args": [],
-            "cwd": "${workspaceFolder}/testrun"
-        }
+            "cwd": "${workspaceFolder}/backend",
+        },
     ]
 }

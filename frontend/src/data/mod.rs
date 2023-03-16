@@ -2,9 +2,12 @@ pub mod prs_data_types;
 
 fn get_base_url() -> String {
     if let Some(window) = web_sys::window() {
-        format!("{}{}", window.origin(), "/api")
+        match window.origin().contains("127") {
+            true => format!("http://127.0.0.1:8080/api"), //fallback
+            false => format!("{}{}", window.origin(), "/api"),
+        }
     } else {
-        format!("http://localhost:8000/api") //fallback
+        format!("http://127.0.0.1:8080/api") //fallback
     }
 }
 

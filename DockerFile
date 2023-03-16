@@ -8,8 +8,9 @@ RUN cargo install --locked trunk
 RUN rustup target add wasm32-unknown-unknown
 # set the workdir and copy the source into it
 WORKDIR /app
-COPY ./testrun /app
-COPY ./testrun/data /app/data
+COPY ./frontend /frontend
+COPY ./backend /app
+COPY ./backend/data /app/data
 
 WORKDIR /app
 # do a release build
@@ -21,10 +22,10 @@ FROM alpine:3.15
 # if needed, install additional dependencies here
 RUN apk add --no-cache libgcc
 # copy the binary into the final image
-COPY --from=0 /app/target/release/testrun .
+COPY --from=0 /app/target/release/backend .
 COPY --from=0 /app/data/ ./data
 COPY --from=0 /app/dist/ ./dist
 
 EXPOSE 8000
 # set the binary as entrypoint
-ENTRYPOINT ["/testrun"]
+ENTRYPOINT ["/backend"]

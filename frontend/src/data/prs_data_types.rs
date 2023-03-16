@@ -56,7 +56,7 @@ pub struct Competition {
 #[serde(rename_all = "camelCase")]
 pub struct Placing {
     pub id: i64,
-    pub pilot: Pilot2,
+    pub pilot: CompetitionPilot,
     pub place: i64,
     pub points: f64,
     pub fai_points: f64,
@@ -66,7 +66,7 @@ pub struct Placing {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Pilot2 {
+pub struct CompetitionPilot {
     pub pin: String,
     pub first_name: String,
     pub last_name: String,

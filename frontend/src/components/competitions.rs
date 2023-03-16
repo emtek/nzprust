@@ -93,10 +93,12 @@ pub fn competition_list(props: &CompetitionDetailProps) -> Html {
                     </p>
                     <p class="sub-title">
                     <ion-icon name="calendar-number-outline"/>
+                    <span>{"  "}</span>
                     <span>{ &competition.comp_date }</span>
                     </p>
                     <p class="sub-title">
                     <ion-icon name="location"/>
+                    <span>{"  "}</span>
                     { &competition.location }
                     </p>
                 </div>

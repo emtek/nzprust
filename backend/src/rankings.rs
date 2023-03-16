@@ -1,5 +1,7 @@
 use crate::constants::constants;
-use frontend::prs_data_types::{CompResult, Competition, Pilot2, Placing, Ranking, RankingPoint};
+use frontend::prs_data_types::{
+    CompResult, Competition, CompetitionPilot, Placing, Ranking, RankingPoint,
+};
 
 use chrono::prelude::*;
 use chrono::Months;
@@ -107,7 +109,7 @@ fn pilot_quality_srtp(num: f64, ranking_points: Vec<RankingPoint>) -> f64 {
 }
 
 /// Pilot quality
-fn pilot_quality_srp(pilots: Vec<Pilot2>, ranking_points: Vec<RankingPoint>) -> f64 {
+fn pilot_quality_srp(pilots: Vec<CompetitionPilot>, ranking_points: Vec<RankingPoint>) -> f64 {
     let mut points: Vec<f64> = ranking_points
         .iter()
         .filter(|rp| pilots.iter().any(|p| p.pin.cmp(&rp.pilot_pin).is_eq()))
@@ -625,7 +627,7 @@ mod tests {
                     .filter(|p| auck_comp_placing_map.contains_key(&p.pin))
                     .enumerate()
                     .map(|(i, p)| Placing {
-                        pilot: Pilot2 {
+                        pilot: CompetitionPilot {
                             pin: p.pin.clone(),
                             first_name: p.first_name.clone(),
                             last_name: p.last_name.clone(),
@@ -666,7 +668,7 @@ mod tests {
                     .filter(|p| wanaka_comp_placing_map.contains_key(&p.pin))
                     .enumerate()
                     .map(|(i, p)| Placing {
-                        pilot: Pilot2 {
+                        pilot: CompetitionPilot {
                             pin: p.pin.clone(),
                             first_name: p.first_name.clone(),
                             last_name: p.last_name.clone(),
@@ -707,7 +709,7 @@ mod tests {
                     .filter(|p| waikato_comp_placing_map.contains_key(&p.pin))
                     .enumerate()
                     .map(|(i, p)| Placing {
-                        pilot: Pilot2 {
+                        pilot: CompetitionPilot {
                             pin: p.pin.clone(),
                             first_name: p.first_name.clone(),
                             last_name: p.last_name.clone(),
