@@ -1,5 +1,3 @@
-use std::{net::SocketAddr, path::PathBuf};
-
 use axum::{
     extract::{self, Path},
     http::StatusCode,
@@ -10,7 +8,8 @@ use axum::{
 use chrono::{Months, NaiveDate};
 use data::data_access::*;
 use data::highcloud_data_types::HighCloudRoot;
-use data::prs_data_types::{Competition, Pilot2, Placing};
+use frontend::prs_data_types::{Competition, Pilot2, Placing};
+use std::{net::SocketAddr, path::PathBuf};
 use tower_http::services::ServeFile;
 use validator::Validate;
 mod constants;

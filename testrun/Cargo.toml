@@ -9,6 +9,7 @@ version = "0.1.0"
 anyhow = "1.0.69"
 axum = "0.6.6"
 chrono = {version = "0.4.23", features = ["unstable-locales"]}
+frontend = {path = "../frontend"}
 reqwest = {version = "0.11.14"}
 serde = {version = "1.0.152", features = ["derive"]}
 serde_json = "1.0.91"

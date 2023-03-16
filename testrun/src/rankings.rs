@@ -1,7 +1,5 @@
 use crate::constants::constants;
-use crate::data::prs_data_types::{
-    CompResult, Competition, Pilot2, Placing, Ranking, RankingPoint,
-};
+use frontend::prs_data_types::{CompResult, Competition, Pilot2, Placing, Ranking, RankingPoint};
 
 use chrono::prelude::*;
 use chrono::Months;
@@ -42,7 +40,7 @@ fn participant_number(
     Some(raw_pn.min(constants::PN_MAX))
 }
 
-/// .
+/// Update all calculated properties for a comptition
 pub fn recalculate_competition(
     competition: &Competition,
     ranking: Option<&Ranking>,
@@ -233,7 +231,8 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::data::{data_access, prs_data_types::Pilot};
+    use crate::data::data_access;
+    use frontend::prs_data_types::Pilot;
 
     #[test]
     fn recalculate_comp_should_get_number() -> Result<()> {
