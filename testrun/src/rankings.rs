@@ -1,5 +1,7 @@
 use crate::constants::constants;
-use crate::prs_data_types::{CompResult, Competition, Pilot2, Placing, Ranking, RankingPoint};
+use crate::data::prs_data_types::{
+    CompResult, Competition, Pilot2, Placing, Ranking, RankingPoint,
+};
 
 use chrono::prelude::*;
 use chrono::Months;
@@ -36,7 +38,6 @@ fn participant_number(
     let ave_num_participants: f64 = (previous_competition_placings.iter().sum::<f64>()
         + num_participants)
         / previous_competition_count;
-    println!("{} / {}", num_participants, ave_num_participants);
     let raw_pn = (num_participants / ave_num_participants).sqrt();
     Some(raw_pn.min(constants::PN_MAX))
 }
@@ -50,7 +51,6 @@ pub fn recalculate_competition(
     let mut updated_competition = competition.clone();
     let pq = pilot_quality(ranking, &competition.placings);
     updated_competition.pq = json!(pq);
-    println!("{}", pq);
     updated_competition.pn = participant_number(competition, comps)?;
     let mut max_points = 0.0;
     for mut placing in updated_competition.placings.iter_mut() {
@@ -233,7 +233,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::{data_access, prs_data_types::Pilot};
+    use crate::data::{data_access, prs_data_types::Pilot};
 
     #[test]
     fn recalculate_comp_should_get_number() -> Result<()> {
@@ -358,29 +358,74 @@ mod tests {
     }
 
     #[allow(dead_code)]
+    #[test]
     fn test_pplacing() {
+        let (_, pilots, competitions) = get_test_data();
+        let auckland_comp = competitions
+            .iter()
+            .find(|c| c.id.cmp(&"2013-09-09-Auckland".to_string()).is_eq());
+        let wanaka_comp = competitions
+            .iter()
+            .find(|c| c.id.cmp(&"2014-10-05-Wanaka".to_string()).is_eq());
+        let waikato_comp = competitions
+            .iter()
+            .find(|c| c.id.cmp(&"2015-08-03-Waikato".to_string()).is_eq());
+        fn find_pilot_placing(pilot: &Pilot, comp: &Competition) -> f64 {
+            let placing = comp
+                .placings
+                .iter()
+                .find(|p| p.pilot.pin.cmp(&pilot.pin).is_eq());
+            if let Some(placing) = placing {
+                return placing.pplacing;
+            }
+            0.0 as f64
+        }
 
-        // assertEquals(0.6666, TestData.pilot1.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(1.0, TestData.pilot2.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.9166, TestData.pilot3.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.75, TestData.pilot4.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.8333, TestData.pilot5.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.5, TestData.pilot6.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.5833, TestData.pilot7.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.4166, TestData.pilot8.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.3333, TestData.pilot9.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.25, TestData.pilot10.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.1666, TestData.pilot11.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.0833, TestData.pilot12.getPlacingForComp(TestData.auckland).getPplacing(), 0.0001);
-        // assertEquals(0.8, TestData.pilot1.getPlacingForComp(TestData.wanaka).getPplacing(), 0.0001);
-        // assertEquals(0.6, TestData.pilot2.getPlacingForComp(TestData.wanaka).getPplacing(), 0.0001);
-        // assertEquals(1.0, TestData.pilot3.getPlacingForComp(TestData.wanaka).getPplacing(), 0.0001);
-        // assertEquals(0.4, TestData.pilot4.getPlacingForComp(TestData.wanaka).getPplacing(), 0.0001);
-        // assertEquals(0.2, TestData.pilot5.getPlacingForComp(TestData.wanaka).getPplacing(), 0.0001);
-        // assertEquals(1.0, TestData.pilot9.getPlacingForComp(TestData.waikato).getPplacing(), 0.0001);
-        // assertEquals(0.75, TestData.pilot12.getPlacingForComp(TestData.waikato).getPplacing(), 0.0001);
-        // assertEquals(0.5, TestData.pilot4.getPlacingForComp(TestData.waikato).getPplacing(), 0.0001);
-        // assertEquals(0.25, TestData.pilot5.getPlacingForComp(TestData.waikato).getPplacing(), 0.0001);
+        assert_eq!(
+            find_pilot_placing(&pilots[0], auckland_comp.unwrap()),
+            0.6666666666666666
+        );
+        assert_eq!(find_pilot_placing(&pilots[1], auckland_comp.unwrap()), 1.0);
+        assert_eq!(
+            find_pilot_placing(&pilots[2], auckland_comp.unwrap()),
+            0.9166666666666666
+        );
+        assert_eq!(find_pilot_placing(&pilots[3], auckland_comp.unwrap()), 0.75);
+        assert_eq!(
+            find_pilot_placing(&pilots[4], auckland_comp.unwrap()),
+            0.8333333333333334
+        );
+        assert_eq!(find_pilot_placing(&pilots[5], auckland_comp.unwrap()), 0.5);
+        assert_eq!(
+            find_pilot_placing(&pilots[6], auckland_comp.unwrap()),
+            0.5833333333333334
+        );
+        assert_eq!(
+            find_pilot_placing(&pilots[7], auckland_comp.unwrap()),
+            0.4166666666666667
+        );
+        assert_eq!(
+            find_pilot_placing(&pilots[8], auckland_comp.unwrap()),
+            0.3333333333333333
+        );
+        assert_eq!(find_pilot_placing(&pilots[9], auckland_comp.unwrap()), 0.25);
+        assert_eq!(
+            find_pilot_placing(&pilots[10], auckland_comp.unwrap()),
+            0.16666666666666666
+        );
+        assert_eq!(
+            find_pilot_placing(&pilots[11], auckland_comp.unwrap()),
+            0.08333333333333333
+        );
+        assert_eq!(find_pilot_placing(&pilots[0], wanaka_comp.unwrap()), 0.8);
+        assert_eq!(find_pilot_placing(&pilots[1], wanaka_comp.unwrap()), 0.6);
+        assert_eq!(find_pilot_placing(&pilots[2], wanaka_comp.unwrap()), 1.0);
+        assert_eq!(find_pilot_placing(&pilots[3], wanaka_comp.unwrap()), 0.4);
+        assert_eq!(find_pilot_placing(&pilots[4], wanaka_comp.unwrap()), 0.2);
+        assert_eq!(find_pilot_placing(&pilots[8], waikato_comp.unwrap()), 1.0);
+        assert_eq!(find_pilot_placing(&pilots[11], waikato_comp.unwrap()), 0.75);
+        assert_eq!(find_pilot_placing(&pilots[3], waikato_comp.unwrap()), 0.5);
+        assert_eq!(find_pilot_placing(&pilots[4], waikato_comp.unwrap()), 0.25);
     }
 
     #[derive(Clone)]

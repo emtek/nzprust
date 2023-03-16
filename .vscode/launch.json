@@ -7,6 +7,7 @@
         {
             "type": "lldb",
             "request": "launch",
+            "preLaunchTask": "cwd",
             "name": "Debug executable 'testrun'",
             "cargo": {
                 "args": [
@@ -20,18 +21,15 @@
                 }
             },
             "args": [],
-            "cwd": "${workspaceFolder}/testrun/",
+            "cwd": "${workspaceFolder}/testrun",
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'testrun'",
+            "name": "cwd",
             "cargo": {
                 "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=testrun",
-                    "--package=testrun"
+                    "-C /testrun"
                 ],
                 "filter": {
                     "name": "testrun",
@@ -39,7 +37,7 @@
                 }
             },
             "args": [],
-            "cwd": "${workspaceFolder}/testrun"
+            "cwd": "${workspaceFolder}"
         },
         {
             "type": "lldb",

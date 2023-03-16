@@ -1,4 +1,4 @@
-use crate::prs_data_types;
+use crate::data::prs_data_types;
 use std::fs;
 
 use anyhow::Result;

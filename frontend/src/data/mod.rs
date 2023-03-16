@@ -1,4 +1,3 @@
-pub mod highcloud_data_types;
 pub mod prs_data_types;
 
 fn get_base_url() -> String {
