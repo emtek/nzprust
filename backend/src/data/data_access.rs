@@ -1,4 +1,5 @@
 use frontend::prs_data_types;
+use scraper::Html;
 use std::fs;
 
 use anyhow::Result;
@@ -23,6 +24,17 @@ where
                 Err(_) => Err(MultiError::DeserializeError),
                 Ok(result) => Ok(result),
             },
+        },
+    }
+}
+
+pub async fn get_html_external(path: String) -> Result<Html, MultiError> {
+    let response = reqwest::get(path).await;
+    match response {
+        Err(_) => Err(MultiError::RequestError),
+        Ok(response) => match response.text().await {
+            Err(_) => Err(MultiError::RequestError),
+            Ok(text) => Ok(Html::parse_document(&text)),
         },
     }
 }

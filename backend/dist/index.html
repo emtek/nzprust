@@ -2,14 +2,22 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>New Zealand Pilot Rankings</title>
+
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <link rel="stylesheet" href="/bulma-switch.min-bff8bc77099e90a6.css">
+    <script>
+        function receive_token(token) {
+            window.localStorage.setItem('auth', JSON.stringify(token.credential));
+            window.location.href = "/";
+        }
+    </script>
 
-<link rel="preload" href="/frontend-4ab1a4c80df7df57_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
-<link rel="modulepreload" href="/frontend-4ab1a4c80df7df57.js"></head>
+<link rel="preload" href="/frontend-1c6b1c983b746c15_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+<link rel="modulepreload" href="/frontend-1c6b1c983b746c15.js"></head>
 
 <body>
 <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule="" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
 
-<script type="module">import init from '/frontend-4ab1a4c80df7df57.js';init('/frontend-4ab1a4c80df7df57_bg.wasm');</script></body></html>
+
+<script type="module">import init from '/frontend-1c6b1c983b746c15.js';init('/frontend-1c6b1c983b746c15_bg.wasm');</script></body></html>

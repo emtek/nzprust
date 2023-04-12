@@ -8,7 +8,22 @@
 				"$rustc"
 			],
 			"group": "build",
-			"label": "rust: cargo build"
+			"label": "Build"
+		},
+		{
+			"type": "cargo",
+			"command": "tarpaulin",
+			"args": [
+				"--ignore-tests",
+				"--skip-clean",
+				"--out",
+				"Html",
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test",
+			"label": "Coverage"
 		}
 	]
 }

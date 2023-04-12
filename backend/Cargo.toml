@@ -7,14 +7,17 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = "1.0.69"
-axum = "0.6.6"
+axum = {version = "0.6.6", features = ["headers"]}
 chrono = {version = "0.4.23", features = ["unstable-locales"]}
 frontend = {path = "../frontend"}
+google-signin = "0.3.0"
 reqwest = {version = "0.11.14"}
+scraper = "0.15.0"
 serde = {version = "1.0.152", features = ["derive"]}
 serde_json = "1.0.91"
 tokio = {version = "1.25.0", features = ["full"]}
-tower-http = {version = "0.4.0", features = ["cors", "fs"]}
+tower = "0.4.13"
+tower-http = {version = "0.4.0", features = ["cors", "fs", "auth"]}
 tracing = "0.1"
 tracing-subscriber = {version = "0.3", features = ["env-filter"]}
 validator = {version = "0.16.0", features = ["derive"]}

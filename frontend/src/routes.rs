@@ -2,10 +2,12 @@ use crate::components::{
     about::About,
     competitions::{CompetitionDetail, CompetitionList},
     create_competition::CompetitionCreate,
+    login::Login,
     nav_bar::Navbar,
     not_found::NotFound,
     pilots::{PilotDetail, PilotList},
     ranking::RankingDetail,
+    user_profile::UserProfile,
 };
 
 use chrono::NaiveDate;
@@ -30,6 +32,8 @@ pub enum AppRoute {
     RankingDetail { date: NaiveDate },
     #[at("/about")]
     About,
+    #[at("/login")]
+    Login,
     #[at("/")]
     Index,
     #[not_found]
@@ -50,26 +54,23 @@ pub fn switch(routes: AppRoute) -> Html {
         }
         AppRoute::CompetitionList => {
             html! {
-                <>
-                <Navbar/>
-                <CompetitionList/>
-                </>
+                <UserProfile>
+                    <CompetitionList/>
+                </UserProfile>
             }
         }
         AppRoute::CompetitionDetail { id } => {
             html! {
-                <>
-                <Navbar/>
-                <CompetitionDetail id={id}/>
-                </>
+                <UserProfile>
+                    <CompetitionDetail id={id}/>
+                </UserProfile>
             }
         }
         AppRoute::CompetitionNew => {
             html! {
-                <>
-                <Navbar/>
-                <CompetitionCreate/>
-                </>
+                <UserProfile>
+                    <CompetitionCreate/>
+                </UserProfile>
             }
         }
         AppRoute::PilotDetail { pin } => html! { <div><Navbar/><PilotDetail pin={pin}/></div> },
@@ -96,6 +97,7 @@ pub fn switch(routes: AppRoute) -> Html {
             }
         }
         AppRoute::About => html! { <div><Navbar/><About/></div> },
+        AppRoute::Login => html! { <div><Navbar/><Login/></div> },
         AppRoute::NotFound => html! { <><Navbar/><NotFound/></> },
     }
 }

@@ -14,7 +14,6 @@
                     "build",
                     "--bin=backend",
                     "--package=backend",
-                    "--manifest-path=${workspaceFolder}/backend/Cargo.toml"
                 ],
                 "filter": {
                     "name": "backend",
@@ -39,11 +38,15 @@
             "cargo": {
                 "args": [
                     "test",
-                    "--manifest-path=${workspaceFolder}/backend/Cargo.toml"
                 ],
                 "filter": {
                     "name": "backend",
                     "kind": "bin"
+                },
+                "env": {
+                    "CARGO_INCREMENTAL": "0",
+                    "RUSTFLAGS": "-C instrument-coverage",
+                    "LLVM_PROFILE_FILE": "cargo-test-%p-%m.profraw"
                 }
             },
             "args": [],

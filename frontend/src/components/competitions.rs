@@ -1,7 +1,10 @@
 use crate::{
-    components::progress_bar::Progress, data::prs_data_types::Competition, data::*,
+    components::{login::Login, progress_bar::Progress},
+    data::prs_data_types::Competition,
+    data::*,
     routes::AppRoute,
 };
+use frontend::prs_data_types::UserInfo;
 use yew::prelude::*;
 use yew_hooks::use_async;
 use yew_router::prelude::Link;
@@ -12,6 +15,7 @@ async fn get_competitions() -> Result<Vec<Competition>, MultiError> {
 
 #[function_component(CompetitionList)]
 pub fn competition_list() -> Html {
+    let user = use_context::<UserInfo>();
     let competitions = use_async(async move { get_competitions().await });
 
     if let Some(competitions) = &competitions.data {
@@ -22,6 +26,24 @@ pub fn competition_list() -> Html {
                     <p class="title">
                     {"Competitions"}
                     </p>
+                </div>
+                <div class="hero-foot">
+                    <nav class="tabs is-boxed">
+                    { match user {
+                        Some(_) => html!{
+                            <div class="container">
+                                <ul>
+                                    <li>
+                                        <Link<AppRoute> to={AppRoute::CompetitionNew}>
+                                        {"Add competition"}
+                                        </Link<AppRoute>>
+                                    </li>
+                                </ul>
+                            </div>
+                        },
+                        None => html!{<></>}
+                    }}
+                    </nav>
                 </div>
             </section>
             <section class="section">
@@ -60,11 +82,27 @@ pub fn competition_list() -> Html {
             </>
         }
     } else {
-        if !competitions.loading {
-            competitions.run();
-        }
-        html! {
-            <Progress/>
+        if let Some(error) = &competitions.error {
+            match error {
+                MultiError::AuthorizationError => html! { <Login/>},
+                MultiError::DeserializeError => {
+                    html! {
+                        <div>{"deser"}</div>
+                    }
+                }
+                MultiError::RequestError => {
+                    html! {
+                        <div>{"req"}</div>
+                    }
+                }
+            }
+        } else {
+            if !competitions.loading {
+                competitions.run();
+            }
+            html! {
+                <Progress/>
+            }
         }
     }
 }
@@ -93,7 +131,7 @@ pub fn competition_list(props: &CompetitionDetailProps) -> Html {
                     </p>
                     <p class="sub-title">
                     <ion-icon name="calendar-number-outline"/>
-                    <span>{"  "}</span>
+                    <span>{" "}</span>
                     <span>{ &competition.comp_date }</span>
                     </p>
                     <p class="sub-title">
