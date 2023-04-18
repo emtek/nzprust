@@ -3,7 +3,9 @@ use std::rc::Rc;
 use crate::{data::prs_data_types::Competition, data::*, routes::AppRoute};
 
 use validator::Validate;
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
+use yew::InputEvent;
 use yew_router::prelude::Link;
 use yewdux::prelude::*;
 use yewdux_input::InputDispatch;
@@ -71,35 +73,52 @@ async fn get_fai_comp(url_string: &String) -> Result<Competition, MultiError> {
 #[function_component(CompetitionCreate)]
 pub fn competition_create() -> Html {
     let (state, dispatch) = use_store::<Competition>();
-    let from_fai = dispatch.reduce_mut_future_callback(|state| {
-        Box::pin(async move {
-            if let Ok(comp) = get_fai_comp(&state.name).await {
-                web_sys::console::log_1(&comp.name.clone().into());
-                state.name = comp.name;
-                state.location = comp.location;
-                state.comp_date = comp.comp_date;
-                state.num_tasks = comp.num_tasks;
-                state.overseas = comp.overseas;
-                state.placings = comp.placings;
-            }
-            ()
-        })
-    });
+    let import_input = use_state(|| "".to_string());
 
-    let from_hc = dispatch.reduce_mut_future_callback(|state| {
-        Box::pin(async move {
-            if let Ok(comp) = get_highcloud_comp(&state.name).await {
-                web_sys::console::log_1(&comp.name.clone().into());
-                state.name = comp.name;
-                state.location = comp.location;
-                state.comp_date = comp.comp_date;
-                state.num_tasks = comp.num_tasks;
-                state.overseas = comp.overseas;
-                state.placings = comp.placings;
-            }
-            ()
+    let import_changed = {
+        let handle = import_input.clone();
+        Callback::from(move |e: InputEvent| {
+            let element: HtmlInputElement = e.target_dyn_into().unwrap();
+            handle.set(element.value());
         })
-    });
+    };
+    let from_fai = {
+        let handle = import_input.clone();
+        dispatch.reduce_mut_future_callback(move |state| {
+            let v = handle.clone();
+            Box::pin(async move {
+                if let Ok(comp) = get_fai_comp(&v.to_string()).await {
+                    web_sys::console::log_1(&comp.name.clone().into());
+                    state.name = comp.name;
+                    state.location = comp.location;
+                    state.comp_date = comp.comp_date;
+                    state.num_tasks = comp.num_tasks;
+                    state.overseas = comp.overseas;
+                    state.placings = comp.placings;
+                }
+                ()
+            })
+        })
+    };
+
+    let from_hc = {
+        let handle = import_input.clone();
+        dispatch.reduce_mut_future_callback(move |state| {
+            let v = handle.clone();
+            Box::pin(async move {
+                if let Ok(comp) = get_highcloud_comp(&v.to_string()).await {
+                    web_sys::console::log_1(&comp.name.clone().into());
+                    state.name = comp.name;
+                    state.location = comp.location;
+                    state.comp_date = comp.comp_date;
+                    state.num_tasks = comp.num_tasks;
+                    state.overseas = comp.overseas;
+                    state.placings = comp.placings;
+                }
+                ()
+            })
+        })
+    };
 
     fn exchange_rate_visible(state: &Rc<Competition>) -> Option<String> {
         if state.overseas {
@@ -126,12 +145,18 @@ pub fn competition_create() -> Html {
         </div>
     </section>
     <section class="section">
+    <div class="field">
+        <label class="label">{"Import"}</label>
+        <div class="control">
+          <input oninput={import_changed} class="input" type="text" placeholder="Highcloud/FAI Competition Id"/>
+        </div>
+      </div>
     <div class="field is-grouped">
       <div class="control">
-        <button class="button is-link" onclick={from_hc}>{"From highcloud"}</button>
+        <button class="button is-link" onclick={from_hc}>{"From Highcloud"}</button>
       </div>
       <div class="control">
-        <button class="button is-link" onclick={from_fai}>{"From fai"}</button>
+        <button class="button is-link" onclick={from_fai}>{"From FAI"}</button>
       </div>
     </div>
       <div class="field">
@@ -184,7 +209,9 @@ pub fn competition_create() -> Html {
             <thead>
                 <tr>
                 <th>{"Rank"}</th>
+                <th>{"Pin"}</th>
                 <th>{"Pilot"}</th>
+                <th>{"Points"}</th>
                 </tr>
             </thead>
             <tbody>
@@ -193,9 +220,11 @@ pub fn competition_create() -> Html {
                     html!{
                     <tr>
                         <td>{&placing.place}</td>
+                        <td>{&placing.pilot.pin}</td>
                         <td><Link<AppRoute> to={AppRoute::PilotDetail {pin: placing.pilot.pin.clone()}}>
-                            {format!("{}", &placing.pilot.first_name)}
+                            {format!("{} {}", &placing.pilot.first_name, &placing.pilot.last_name )}
                         </Link<AppRoute>></td>
+                        <td>{&placing.fai_points}</td>
                     </tr>
                 }).collect::<Html>()
             }

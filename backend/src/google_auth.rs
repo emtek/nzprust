@@ -5,10 +5,10 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use frontend::prs_data_types::{Root, UserInfo};
+use frontend::prs_data_types::UserInfo;
 
 pub async fn google_auth<T>(
-    state: State<Root>,
+    admin_users: State<Vec<String>>,
     mut request: Request<T>,
     next: Next<T>,
 ) -> Result<Response, StatusCode> {
@@ -24,10 +24,7 @@ pub async fn google_auth<T>(
         .to_owned();
     let id_info = client.verify(&token).ok().ok_or(StatusCode::UNAUTHORIZED)?;
     let email = id_info.email.unwrap_or_default().clone();
-    let user = state
-        .admin_users
-        .iter()
-        .find(|u| u.eq_ignore_ascii_case(&email));
+    let user = admin_users.iter().find(|u| u.eq_ignore_ascii_case(&email));
     match user {
         Some(_) => {
             request.extensions_mut().insert(UserInfo {

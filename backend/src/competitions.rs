@@ -12,10 +12,10 @@ use validator::Validate;
 
 use crate::{google_auth::google_auth, scoring};
 
-pub fn competition_routes(data: Root) -> Router<Root> {
+pub fn competition_routes(admin_users: Vec<String>) -> Router<Root> {
     Router::new()
         .route("/api/competitions", post(create_competition))
-        .route_layer(middleware::from_fn_with_state(data.clone(), google_auth))
+        .route_layer(middleware::from_fn_with_state(admin_users, google_auth))
         .route("/api/competitions", get(competitions))
         .route("/api/competition/:id", get(competition))
 }

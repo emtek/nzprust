@@ -35,13 +35,17 @@ fn setup_server() -> Router {
             .fallback(ServeFile::new("./dist/index.html")),
     );
     let data = load_data().unwrap();
+    let admin_users: Vec<String> = data.admin_users.iter().map(|f| f.clone()).collect();
     Router::new()
         .fallback(static_files_service)
         .route("/api/profile", get(get_profile))
-        .route_layer(middleware::from_fn_with_state(data.clone(), google_auth))
+        .route_layer(middleware::from_fn_with_state(
+            admin_users.clone(),
+            google_auth,
+        ))
         .route("/api/competition/fromhc/:compid", get(from_highcloud))
         .route("/api/competition/fromfai/:compid", get(from_fai))
-        .merge(competition_routes(data.clone()))
+        .merge(competition_routes(admin_users.clone()))
         .merge(pilot_routes())
         .merge(ranking_routes())
         .with_state(data)
@@ -55,7 +59,7 @@ async fn main() {
 
     // run our app with hyper
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
-    tracing::debug!("listening on {}", addr);
+    tracing::info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(router.into_make_service())
         .await
