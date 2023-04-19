@@ -1,7 +1,6 @@
 use axum::{
     extract::{self, Path, State},
     http::StatusCode,
-    middleware,
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -10,25 +9,27 @@ use chrono::{Months, NaiveDate};
 use frontend::prs_data_types::{Competition, Root};
 use validator::Validate;
 
-use crate::{google_auth::google_auth, scoring};
+use crate::scoring;
 
-pub fn competition_routes(admin_users: Vec<String>) -> Router<Root> {
+pub fn competition_routes() -> Router<Root> {
     Router::new()
-        .route("/api/competitions", post(create_competition))
-        .route_layer(middleware::from_fn_with_state(admin_users, google_auth))
         .route("/api/competitions", get(competitions))
         .route("/api/competition/:id", get(competition))
+}
+
+pub fn restricted_competition_routes() -> Router<Root> {
+    Router::new().route("/api/competitions", post(create_competition))
 }
 
 async fn competitions(State(data): State<Root>) -> Response {
     let mut sorted_competitions = data.competitions.clone();
     sorted_competitions.sort_by(|a, b| b.comp_date.cmp(&a.comp_date));
-    (StatusCode::OK, Json(&sorted_competitions)).into_response()
+    Json(&sorted_competitions).into_response()
 }
 
 async fn competition(State(data): State<Root>, Path(id): extract::Path<String>) -> Response {
     match data.competitions.iter().find(|c| c.id == id) {
-        Some(competition) => (StatusCode::OK, Json(competition)).into_response(),
+        Some(competition) => Json(competition).into_response(),
         None => (StatusCode::NOT_FOUND).into_response(),
     }
 }
@@ -37,19 +38,19 @@ async fn create_competition(
     State(data): State<Root>,
     Json(competition): extract::Json<Competition>,
 ) -> Response {
-    let mut root = data.clone();
+    let mut rankings = data.rankings.clone();
     match competition.validate() {
         Err(error) => (StatusCode::BAD_REQUEST, Json(error)).into_response(),
         Ok(_) => {
-            root.rankings.sort_by(|a, b| b.date.cmp(&a.date));
-            let ranking = root.rankings.iter().find(|r| {
+            rankings.sort_by(|a, b| b.date.cmp(&a.date));
+            let ranking = rankings.iter().find(|r| {
                 let comp_date = competition.comp_date.parse::<NaiveDate>().unwrap();
                 let rdate = &&r.date.parse::<NaiveDate>().unwrap();
                 let two_years_earlier = comp_date.checked_sub_months(Months::new(24)).unwrap();
                 two_years_earlier.lt(&rdate) && (comp_date.gt(&rdate) || comp_date.eq(&rdate))
             });
-            match scoring::recalculate_competition(&competition, ranking, &root.competitions) {
-                Some(new_competition) => (StatusCode::OK, Json(new_competition)).into_response(),
+            match scoring::recalculate_competition(&competition, ranking, &data.competitions) {
+                Some(new_competition) => Json(new_competition).into_response(),
                 None => (StatusCode::BAD_REQUEST).into_response(),
             }
         }

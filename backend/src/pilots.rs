@@ -27,22 +27,19 @@ async fn pilot(State(data): State<Root>, Path(pin): extract::Path<i64>) -> Respo
 }
 
 async fn pilot_competitions(State(data): State<Root>, Path(pin): extract::Path<i32>) -> Response {
-    (
-        StatusCode::OK,
-        Json(
-            &data
-                .competitions
-                .iter()
-                .filter(|c| {
-                    c.placings
-                        .iter()
-                        .any(|placing| placing.pilot.pin == pin.to_string())
-                })
-                .map(|c| c.clone())
-                .collect::<Vec<Competition>>(),
-        ),
+    Json(
+        &data
+            .competitions
+            .iter()
+            .filter(|c| {
+                c.placings
+                    .iter()
+                    .any(|placing| placing.pilot.pin == pin.to_string())
+            })
+            .map(|c| c.clone())
+            .collect::<Vec<Competition>>(),
     )
-        .into_response()
+    .into_response()
 }
 
 #[cfg(test)]

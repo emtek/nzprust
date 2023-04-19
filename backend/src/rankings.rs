@@ -18,7 +18,7 @@ pub fn ranking_routes() -> Router<Root> {
 }
 
 async fn get_rankings(State(data): State<Root>) -> Response {
-    (StatusCode::OK, Json(data.rankings)).into_response()
+    Json(data.rankings).into_response()
 }
 
 async fn get_ranking(State(data): State<Root>, Path(date): extract::Path<String>) -> Response {
@@ -40,7 +40,7 @@ async fn create_ranking(State(data): State<Root>, Path(date): extract::Path<Stri
         Ok(date) => {
             let results = scoring::calculate_rankings(&date, &data.competitions);
             match results {
-                Some(results) => (StatusCode::OK, Json(results)).into_response(),
+                Some(results) => Json(results).into_response(),
                 None => (StatusCode::BAD_REQUEST).into_response(),
             }
         }

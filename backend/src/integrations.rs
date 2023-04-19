@@ -28,48 +28,45 @@ pub async fn from_highcloud(State(data): State<Root>, Path(comp_id): Path<i32>) 
                 .take_while(|a| a.is_i64() || a.as_str().unwrap_or("").cmp("").is_ne())
                 .count();
         }
-        (
-            StatusCode::OK,
-            Json(&Competition {
-                name: highcloud_competition.compinfo.com_name,
-                location: highcloud_competition.compinfo.com_location,
-                comp_date: highcloud_competition.compinfo.com_date_from,
-                num_tasks: tasks as i64,
-                placings: highcloud_competition
-                    .data
-                    .iter()
-                    .map(|v| {
-                        let fullname = v.get(3).unwrap().as_str().unwrap_or_default().to_string();
-                        let mut split_name = fullname.split_whitespace();
-                        let first_name = split_name.next();
-                        let last_name = split_name.last();
-                        let pin = v.get(1).unwrap().as_str().unwrap().to_string();
-                        let existing_pilot = search_pilot(&data, &pin.as_str(), &fullname);
-                        Placing {
-                            place: v.get(0).unwrap().as_i64().unwrap(),
-                            pilot: CompetitionPilot {
-                                pin: existing_pilot
-                                    .clone()
-                                    .map(|p| p.pin)
-                                    .unwrap_or("".to_string()),
-                                first_name: existing_pilot
-                                    .clone()
-                                    .map(|p| p.first_name)
-                                    .unwrap_or(first_name.unwrap_or_default().to_string()),
-                                last_name: existing_pilot
-                                    .clone()
-                                    .map(|p| p.last_name)
-                                    .unwrap_or(last_name.unwrap_or_default().to_string()),
-                                gender: v.get(5).unwrap().as_str().unwrap().to_string(),
-                            },
-                            ..Default::default()
-                        }
-                    })
-                    .collect(),
-                ..Default::default()
-            }),
-        )
-            .into_response()
+        Json(&Competition {
+            name: highcloud_competition.compinfo.com_name,
+            location: highcloud_competition.compinfo.com_location,
+            comp_date: highcloud_competition.compinfo.com_date_from,
+            num_tasks: tasks as i64,
+            placings: highcloud_competition
+                .data
+                .iter()
+                .map(|v| {
+                    let fullname = v.get(3).unwrap().as_str().unwrap_or_default().to_string();
+                    let mut split_name = fullname.split_whitespace();
+                    let first_name = split_name.next();
+                    let last_name = split_name.last();
+                    let pin = v.get(1).unwrap().as_str().unwrap().to_string();
+                    let existing_pilot = search_pilot(&data, &pin.as_str(), &fullname);
+                    Placing {
+                        place: v.get(0).unwrap().as_i64().unwrap(),
+                        pilot: CompetitionPilot {
+                            pin: existing_pilot
+                                .clone()
+                                .map(|p| p.pin)
+                                .unwrap_or("".to_string()),
+                            first_name: existing_pilot
+                                .clone()
+                                .map(|p| p.first_name)
+                                .unwrap_or(first_name.unwrap_or_default().to_string()),
+                            last_name: existing_pilot
+                                .clone()
+                                .map(|p| p.last_name)
+                                .unwrap_or(last_name.unwrap_or_default().to_string()),
+                            gender: v.get(5).unwrap().as_str().unwrap().to_string(),
+                        },
+                        ..Default::default()
+                    }
+                })
+                .collect(),
+            ..Default::default()
+        })
+        .into_response()
     } else {
         (StatusCode::NOT_FOUND).into_response()
     }
@@ -140,23 +137,21 @@ pub async fn from_fai(State(data): State<Root>, Path(comp_id): Path<i32>) -> Res
             .take(1)
             .map(|h| h.inner_html())
             .collect::<Vec<String>>();
-        (
-            StatusCode::OK,
-            Json(Competition {
-                comp_date: comp_date
-                    .first()
-                    .unwrap()
-                    .to_string()
-                    .split("<br>")
-                    .take(1)
-                    .collect::<String>(),
-                name: comp_name.first().unwrap().to_string(),
-                placings: pilots,
-                overseas: true,
-                ..Default::default()
-            }),
-        )
-            .into_response()
+
+        Json(Competition {
+            comp_date: comp_date
+                .first()
+                .unwrap()
+                .to_string()
+                .split("<br>")
+                .take(1)
+                .collect::<String>(),
+            name: comp_name.first().unwrap().to_string(),
+            placings: pilots,
+            overseas: true,
+            ..Default::default()
+        })
+        .into_response()
     } else {
         (StatusCode::NOT_FOUND).into_response()
     }
