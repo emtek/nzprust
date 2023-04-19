@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use crate::{data::prs_data_types::Competition, data::*, routes::AppRoute};
-
 use validator::Validate;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;

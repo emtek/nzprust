@@ -88,7 +88,7 @@ async fn main() {
 
     // run our app with hyper
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
-    tracing::info!("listening on {}", addr);
+    tracing::info!("nzprs backend listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(router.into_make_service())
         .with_graceful_shutdown(shutdown_signal())

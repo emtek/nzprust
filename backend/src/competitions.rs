@@ -28,6 +28,7 @@ async fn competitions(State(data): State<Root>) -> Response {
 }
 
 async fn competition(State(data): State<Root>, Path(id): extract::Path<String>) -> Response {
+    tracing::info!("Competition {:?} requested", id);
     match data.competitions.iter().find(|c| c.id == id) {
         Some(competition) => Json(competition).into_response(),
         None => (StatusCode::NOT_FOUND).into_response(),
