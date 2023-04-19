@@ -845,7 +845,7 @@ dependencies = [
 [[package]]
 name = "google-signin"
 version = "0.4.0"
-source = "git+https://github.com/emtek/google-signin-rs.git#f19fb76c99f6e0dce5eaa54d64f3f1f783ca88a8"
+source = "git+https://github.com/emtek/google-signin-rs.git#5f76f2f03c5e99b245af4c5f88ba31610bcc313c"
 dependencies = [
  "bytes",
  "cache_control",
