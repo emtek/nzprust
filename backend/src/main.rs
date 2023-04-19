@@ -16,7 +16,10 @@ use pilots::pilot_routes;
 use rankings::ranking_routes;
 use std::{net::SocketAddr, path::PathBuf};
 use tokio::signal;
-use tower_http::services::ServeFile;
+use tower_http::{services::ServeFile, trace::TraceLayer};
+use tracing::instrument::WithSubscriber;
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::{filter, Layer};
 mod competitions;
 mod data;
 mod google_auth;
@@ -53,6 +56,7 @@ fn setup_server() -> Router {
         .merge(pilot_routes())
         .merge(ranking_routes())
         .with_state(data)
+        .layer(TraceLayer::new_for_http())
 }
 
 async fn shutdown_signal() {
@@ -82,16 +86,24 @@ async fn shutdown_signal() {
 
 #[tokio::main]
 async fn main() {
-    // initialize tracing
-    tracing_subscriber::fmt::init();
-    let router = setup_server();
+    // initialize tracing output to stdout
+    let filter = filter::Targets::new()
+        .with_target("tower_http::trace::on_response", tracing::Level::TRACE)
+        .with_target("tower_http::trace::on_request", tracing::Level::TRACE)
+        .with_default(tracing::Level::DEBUG);
+    let layer = tracing_subscriber::fmt::layer()
+        .with_writer(std::io::stdout)
+        .with_filter(filter);
 
+    tracing_subscriber::registry().with(layer).init();
+    let router = setup_server();
     // run our app with hyper
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
     tracing::info!("nzprs backend listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(router.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
+        .with_current_subscriber()
         .await
         .unwrap();
 }
