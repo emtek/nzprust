@@ -5,19 +5,29 @@ use axum::{
     routing::{get, get_service},
     Extension, Json, Router,
 };
-
 use competitions::{competition_routes, restricted_competition_routes};
 use data::data_access::*;
 use frontend::prs_data_types::UserInfo;
 use google_auth::google_auth;
 use google_signin::CachedCerts;
 use integrations::{from_fai, from_highcloud};
+use opentelemetry::{
+    global::{self},
+    sdk::{propagation::TraceContextPropagator, Resource},
+    KeyValue,
+};
+use opentelemetry::{
+    runtime::Tokio,
+    sdk::trace::{self},
+};
+use opentelemetry_otlp::WithExportConfig;
 use pilots::pilot_routes;
 use rankings::ranking_routes;
-use std::{net::SocketAddr, path::PathBuf};
+use std::{collections::HashMap, env, net::SocketAddr, path::PathBuf};
 use tokio::signal;
-use tower_http::{services::ServeFile, trace::TraceLayer};
+use tower_http::{catch_panic::CatchPanicLayer, services::ServeFile, trace::TraceLayer};
 use tracing::instrument::WithSubscriber;
+use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{filter, Layer};
 mod competitions;
@@ -56,6 +66,7 @@ fn setup_server() -> Router {
         .merge(pilot_routes())
         .merge(ranking_routes())
         .with_state(data)
+        .layer(CatchPanicLayer::new())
         .layer(TraceLayer::new_for_http())
 }
 
@@ -86,16 +97,47 @@ async fn shutdown_signal() {
 
 #[tokio::main]
 async fn main() {
+    // Setting a trace context propagation data.
+    global::set_text_map_propagator(TraceContextPropagator::new());
     // initialize tracing output to stdout
     let filter = filter::Targets::new()
         .with_target("tower_http::trace::on_response", tracing::Level::TRACE)
         .with_target("tower_http::trace::on_request", tracing::Level::TRACE)
+        .with_target("tower_http::trace::on_failure", tracing::Level::ERROR)
+        .with_target("hyper", tracing::Level::ERROR)
         .with_default(tracing::Level::DEBUG);
     let layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stdout)
-        .with_filter(filter);
+        .with_filter(filter.clone());
 
-    tracing_subscriber::registry().with(layer).init();
+    if let Ok(api_key) = env::var("HONEYCOMB_API_KEY") {
+        let exporter = opentelemetry_otlp::new_exporter()
+            .http()
+            .with_endpoint("https://api.honeycomb.io/v1/traces")
+            .with_http_client(reqwest::Client::default())
+            .with_headers(HashMap::from([("x-honeycomb-team".into(), api_key)]));
+        let otlp_tracer = opentelemetry_otlp::new_pipeline()
+            .tracing()
+            .with_exporter(exporter)
+            .with_trace_config(
+                trace::config().with_resource(Resource::new(vec![KeyValue::new(
+                    opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+                    "NZPRS".to_string(),
+                )])),
+            )
+            .install_batch(opentelemetry::runtime::Tokio)
+            .expect("Error - Failed to create tracer.");
+
+        tracing_subscriber::registry().with(
+            tracing_opentelemetry::layer()
+                .with_tracer(otlp_tracer)
+                .with_filter(filter),
+        );
+    } else {
+        // just print to console
+        tracing_subscriber::registry().with(layer).init();
+    }
+
     let router = setup_server();
     // run our app with hyper
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));

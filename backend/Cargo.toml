@@ -11,13 +11,17 @@ axum = {version = "0.6.16", features = ["headers"]}
 chrono = {version = "0.4.24", features = ["unstable-locales"]}
 frontend = {path = "../frontend"}
 google-signin = {git = "https://github.com/emtek/google-signin-rs.git"}
+opentelemetry = {version = "0.17.0", features = ["trace", "rt-tokio"]}
+opentelemetry-otlp = {version = "0.10.0", features = ["http-proto", "reqwest-client", "tokio"]}
+opentelemetry-semantic-conventions = "0.9"
 reqwest = {version = "0.11.16"}
 scraper = "0.16.0"
 serde = {version = "1.0.160", features = ["derive"]}
 serde_json = "1.0.96"
 tokio = {version = "1.25.0", features = ["full"]}
 tower = "0.4.13"
-tower-http = {version = "0.4.0", features = ["cors", "fs", "auth", "trace"]}
+tower-http = {version = "0.4.0", features = ["cors", "fs", "auth", "trace", "catch-panic"]}
 tracing = "0.1"
+tracing-opentelemetry = "0.17.4"
 tracing-subscriber = {version = "0.3", features = ["env-filter"]}
 validator = {version = "0.16.0", features = ["derive"]}
