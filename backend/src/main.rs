@@ -11,14 +11,11 @@ use frontend::prs_data_types::UserInfo;
 use google_auth::google_auth;
 use google_signin::CachedCerts;
 use integrations::{from_fai, from_highcloud};
+use opentelemetry::sdk::trace::{self};
 use opentelemetry::{
     global::{self},
     sdk::{propagation::TraceContextPropagator, Resource},
     KeyValue,
-};
-use opentelemetry::{
-    runtime::Tokio,
-    sdk::trace::{self},
 };
 use opentelemetry_otlp::WithExportConfig;
 use pilots::pilot_routes;
@@ -128,11 +125,13 @@ async fn main() {
             .install_batch(opentelemetry::runtime::Tokio)
             .expect("Error - Failed to create tracer.");
 
-        tracing_subscriber::registry().with(
-            tracing_opentelemetry::layer()
-                .with_tracer(otlp_tracer)
-                .with_filter(filter),
-        );
+        tracing_subscriber::registry()
+            .with(
+                tracing_opentelemetry::layer()
+                    .with_tracer(otlp_tracer)
+                    .with_filter(filter),
+            )
+            .init();
     } else {
         // just print to console
         tracing_subscriber::registry().with(layer).init();
