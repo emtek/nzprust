@@ -4,6 +4,7 @@ FROM rust:1-alpine3.17
 ENV RUSTFLAGS="-C target-feature=-crt-static"
 # if needed, add additional dependencies here
 RUN apk add --no-cache musl-dev openssl-dev
+RUN apk add gcompat
 RUN cargo install --locked trunk
 RUN rustup target add wasm32-unknown-unknown
 # set the workdir and copy the source into it
