@@ -19,8 +19,9 @@ use opentelemetry::{
 };
 use opentelemetry_otlp::WithExportConfig;
 use pilots::pilot_routes;
+use polodb_core::Database;
 use rankings::ranking_routes;
-use std::{collections::HashMap, env, net::SocketAddr, path::PathBuf};
+use std::{collections::HashMap, env, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::signal;
 use tower_http::{catch_panic::CatchPanicLayer, services::ServeFile, trace::TraceLayer};
 use tracing::instrument::WithSubscriber;
@@ -46,8 +47,12 @@ fn setup_server() -> Router {
             .append_index_html_on_directories(true)
             .fallback(ServeFile::new("./dist/index.html")),
     );
-    let data = load_data().unwrap();
-    let admin_users: Vec<String> = data.admin_users.iter().map(|f| f.clone()).collect();
+    let db = Database::open_file("./data/polostore.db").unwrap();
+    let arc_db = Arc::new(db);
+    //let data = load_data().unwrap();
+    //add_to_polo(&data);
+    //get_from_polo();
+    let admin_users: Vec<String> = vec!["slowtalkinguy@gmail.com".to_string()]; //data.admin_users.iter().map(|f| f.clone()).collect();
     let google_certs = CachedCerts::new();
     Router::new()
         .fallback(static_files_service)
@@ -62,7 +67,7 @@ fn setup_server() -> Router {
         .merge(competition_routes())
         .merge(pilot_routes())
         .merge(ranking_routes())
-        .with_state(data)
+        .with_state(arc_db)
         .layer(CatchPanicLayer::new())
         .layer(TraceLayer::new_for_http())
 }

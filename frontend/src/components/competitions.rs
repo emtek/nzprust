@@ -101,7 +101,16 @@ pub fn competition_list() -> Html {
                 competitions.run();
             }
             html! {
-                <Progress/>
+                <>
+                    <section class="hero is-info">
+                        <div class="hero-body">
+                            <p class="title">
+                            {"Competitions"}
+                            </p>
+                        </div>
+                    </section>
+                    <Progress/>
+                </>
             }
         }
     }
@@ -124,7 +133,7 @@ pub fn competition_list(props: &CompetitionDetailProps) -> Html {
     if let Some(competition) = &competition.data {
         html! {
             <>
-            <section class="hero is-info">
+            <section class="hero is-primary">
                 <div class="hero-body">
                     <p class="title">
                     { &competition.name }
