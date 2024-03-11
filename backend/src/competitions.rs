@@ -10,41 +10,37 @@ use axum::{
 use chrono::{Months, NaiveDate};
 use frontend::prs_data_types::{Competition, Ranking, Root};
 use polodb_core::Database;
+use surrealdb::{engine::remote::ws::Client, Surreal};
 use validator::Validate;
 
 use crate::scoring;
 
-pub fn competition_routes() -> Router<Arc<Database>> {
+pub fn competition_routes() -> Router<Arc<Surreal<Client>>> {
     Router::new()
         .route("/api/competitions", get(competitions))
         .route("/api/competition/:id", get(competition))
 }
 
-pub fn restricted_competition_routes() -> Router<Arc<Database>> {
+pub fn restricted_competition_routes() -> Router<Arc<Surreal<Client>>> {
     Router::new().route("/api/competitions", post(create_competition))
 }
 
-async fn competitions(State(data): State<Arc<Database>>) -> Response {
-    let mut sorted_competitions = data
-        .collection::<Competition>("competitions")
-        .find(None)
-        .unwrap()
-        .flatten()
-        .collect::<Vec<Competition>>();
+async fn competitions(State(data): State<Arc<Surreal<Client>>>) -> Response {
+    let mut db_response = data.query("select * from competitions").await.unwrap();
+    let mut sorted_competitions: Vec<Competition> = db_response.take(0).unwrap();
     sorted_competitions.sort_by(|a, b| b.comp_date.cmp(&a.comp_date));
     Json(&sorted_competitions).into_response()
 }
 
 async fn competition(
-    State(data): State<Arc<Database>>,
+    State(data): State<Arc<Surreal<Client>>>,
     Path(id): extract::Path<String>,
 ) -> Response {
     tracing::info!("Competition {:?} requested", id);
-    match data
-        .collection::<Competition>("competitions")
-        .find(None)
-        .unwrap()
-        .flatten()
+    let mut db_response = data.query("select * from competitions").await.unwrap();
+    let competitions: Vec<Competition> = db_response.take(0).unwrap();
+    match &competitions
+        .into_iter()
         .filter(|c| c.internal_id == id)
         .collect::<Vec<Competition>>()
         .first()
@@ -55,21 +51,15 @@ async fn competition(
 }
 
 async fn create_competition(
-    State(data): State<Arc<Database>>,
+    State(data): State<Arc<Surreal<Client>>>,
     Json(competition): extract::Json<Competition>,
 ) -> Response {
-    let mut rankings = data
-        .collection::<Ranking>("rankings")
-        .find(None)
-        .unwrap()
-        .flatten()
-        .collect::<Vec<Ranking>>();
-    let competitions = data
-        .collection::<Competition>("competitions")
-        .find(None)
-        .unwrap()
-        .flatten()
-        .collect::<Vec<Competition>>();
+    let mut db_response = data
+        .query("select * from competitions; select * from rankings")
+        .await
+        .unwrap();
+    let competitions: Vec<Competition> = db_response.take(0).unwrap();
+    let mut rankings: Vec<Ranking> = db_response.take(1).unwrap();
     match competition.validate() {
         Err(error) => (StatusCode::BAD_REQUEST, Json(error)).into_response(),
         Ok(_) => {

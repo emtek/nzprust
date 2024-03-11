@@ -34,19 +34,6 @@ pub async fn add_to_surreal(root: &Root) -> Result<bool> {
     for f in root.rankings.iter() {
         let rankings: Vec<Record> = db.create("rankings").content(f.clone()).await?;
     }
-    // root.competitions.iter().for_each(move |f| {
-    //     async move {
-    //         let created: &Competition = &db.create("competitions").content(f).await.unwrap();
-    //     };
-    //     ()
-    // });
-
-    // root.rankings.iter().for_each(move |f| {
-    //     async move {
-    //         let created: &Ranking = &db.create("rankings").content(f).await.unwrap();
-    //     };
-    //     ()
-    // });
     Ok(true)
 }
 

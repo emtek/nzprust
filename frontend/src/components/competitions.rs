@@ -64,7 +64,7 @@ pub fn competition_list() -> Html {
                         html!{
                         <tr>
                             <td>
-                                <Link<AppRoute> to={AppRoute::CompetitionDetail {id: competition.id.clone()}}>
+                                <Link<AppRoute> to={AppRoute::CompetitionDetail {id: competition.internal_id.clone()}}>
                                     {&competition.name}
                                 </Link<AppRoute>>
                             </td>

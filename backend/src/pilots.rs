@@ -10,31 +10,27 @@ use axum::{
 use polodb_core::Database;
 
 use frontend::prs_data_types::{Competition, Pilot, Root};
+use surrealdb::{engine::remote::ws::Client, Surreal};
 
-pub fn pilot_routes() -> Router<Arc<Database>> {
+pub fn pilot_routes() -> Router<Arc<Surreal<Client>>> {
     Router::new()
         .route("/api/pilots", get(pilots))
         .route("/api/pilot/:pin", get(pilot))
         .route("/api/pilot/:pin/competitions", get(pilot_competitions))
 }
 
-async fn pilots(State(data): State<Arc<Database>>) -> Response {
-    let pilots = data
-        .collection::<Pilot>("pilots")
-        .find(None)
-        .unwrap()
-        .flatten()
-        .collect::<Vec<Pilot>>();
+async fn pilots(State(data): State<Arc<Surreal<Client>>>) -> Response {
+    let mut db_response = data.query("select * from pilots").await.unwrap();
+    let pilots: Vec<Pilot> = db_response.take(0).unwrap();
     (StatusCode::OK, Json(pilots)).into_response()
 }
 
-async fn pilot(State(data): State<Arc<Database>>, Path(pin): extract::Path<i64>) -> Response {
-    let pilots = data
-        .collection::<Pilot>("pilots")
-        .find(None)
-        .unwrap()
-        .flatten()
-        .collect::<Vec<Pilot>>();
+async fn pilot(
+    State(data): State<Arc<Surreal<Client>>>,
+    Path(pin): extract::Path<i64>,
+) -> Response {
+    let mut db_response = data.query("select * from pilots").await.unwrap();
+    let pilots: Vec<Pilot> = db_response.take(0).unwrap();
     match pilots.iter().find(|p| p.pin == pin.to_string()) {
         Some(pilot) => (StatusCode::OK, Json(pilot.clone())).into_response(),
         None => (StatusCode::NOT_FOUND).into_response(),
@@ -42,15 +38,11 @@ async fn pilot(State(data): State<Arc<Database>>, Path(pin): extract::Path<i64>)
 }
 
 async fn pilot_competitions(
-    State(data): State<Arc<Database>>,
+    State(data): State<Arc<Surreal<Client>>>,
     Path(pin): extract::Path<i32>,
 ) -> Response {
-    let competitions = data
-        .collection::<Competition>("competitions")
-        .find(None)
-        .unwrap()
-        .flatten()
-        .collect::<Vec<Competition>>();
+    let mut db_response = data.query("select * from competitions").await.unwrap();
+    let competitions: Vec<Competition> = db_response.take(0).unwrap();
     Json(
         competitions
             .iter()

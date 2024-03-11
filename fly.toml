@@ -7,9 +7,6 @@ mounts = []
 primary_region = "syd"
 processes = []
 
-[build]
-dockerfile = "DockerFile"
-
 [[services]]
 internal_port = 8000
 processes = ["app"]

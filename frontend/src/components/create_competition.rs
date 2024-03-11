@@ -198,7 +198,7 @@ pub fn competition_create() -> Html {
       <div class={classes!("field",exchange_rate_visible(&state))}>
         <label class="label">{"Exchange rate"}</label>
         <div class="control">
-          <input type="number" oninput={dispatch.input_mut(|state, text| state.exchange_rate = text)} class={classes!("input",is_valid("exchange_rate", &state))} type="text" placeholder="Exchange rate"/>
+          // <input type="number" oninput={dispatch.input(|state, text| state.exchange_rate = text)} class={classes!("input",is_valid("exchange_rate", &state))} type="text" placeholder="Exchange rate"/>
         </div>
         <p class="help is-danger">{validation_message("exchange_rate",&state)}</p>
       </div>

@@ -22,6 +22,7 @@ use pilots::pilot_routes;
 use polodb_core::Database;
 use rankings::ranking_routes;
 use std::{collections::HashMap, env, net::SocketAddr, path::PathBuf, sync::Arc};
+use surrealdb::{engine::remote::ws::Wss, Surreal};
 use tokio::signal;
 use tower_http::{catch_panic::CatchPanicLayer, services::ServeFile, trace::TraceLayer};
 use tracing::instrument::WithSubscriber;
@@ -40,14 +41,26 @@ async fn get_profile(Extension(profile): Extension<UserInfo>) -> Response {
     (StatusCode::OK, Json(profile)).into_response()
 }
 
-fn setup_server() -> Router {
+async fn setup_server() -> Router {
     let assets_dir = PathBuf::from("./dist");
     let static_files_service = get_service(
         tower_http::services::ServeDir::new(assets_dir)
             .append_index_html_on_directories(true)
             .fallback(ServeFile::new("./dist/index.html")),
     );
-    let db = Database::open_file("./data/polostore.db").unwrap();
+    let db = Surreal::new::<Wss>("spring-day-hooray-misty-hill-8333.fly.dev")
+        .await
+        .unwrap();
+
+    // Signin as a namespace, database, or root user
+    db.signin(surrealdb::opt::auth::Root {
+        username: "nzprsroot",
+        password: "nzprsmaxpass123",
+    })
+    .await
+    .unwrap();
+    db.use_ns("default").use_db("default").await.unwrap();
+
     let arc_db = Arc::new(db);
 
     //get_from_polo();
@@ -61,8 +74,8 @@ fn setup_server() -> Router {
             (admin_users.clone(), google_certs.clone()),
             google_auth,
         ))
-        .route("/api/competition/fromhc/:compid", get(from_highcloud))
-        .route("/api/competition/fromfai/:compid", get(from_fai))
+        // .route("/api/competition/fromhc/:compid", get(from_highcloud))
+        // .route("/api/competition/fromfai/:compid", get(from_fai))
         .merge(competition_routes())
         .merge(pilot_routes())
         .merge(ranking_routes())
@@ -141,7 +154,7 @@ async fn main() {
         tracing_subscriber::registry().with(layer).init();
     }
 
-    let router = setup_server();
+    let router = setup_server().await;
     // run our app with hyper
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     tracing::info!("nzprs backend listening on {}", addr);

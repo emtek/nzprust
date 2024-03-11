@@ -135,7 +135,7 @@ pub fn pilot_competition_list(props: &PilotDetailProps) -> Html {
                         <tr>
                             <td>{&placing.place}</td>
                             <td>
-                                <Link<AppRoute> to={AppRoute::CompetitionDetail {id: competition.id.clone()}}>
+                                <Link<AppRoute> to={AppRoute::CompetitionDetail {id: competition.internal_id.clone()}}>
                                     {format!("{}", &competition.name)}
                                 </Link<AppRoute>>
                             </td>
