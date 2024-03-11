@@ -219,7 +219,7 @@ fn time_decayed_points(
         placing.pilot.pin.clone(),
         CompResult {
             place: placing.place.clone(),
-            comp_id: competition.id.clone(),
+            comp_id: competition.internal_id.clone(),
             comp_name: competition.name.clone(),
             points: placing.points * competition_decay(days_since_competition),
             overseas: competition.overseas.clone(),
@@ -272,7 +272,10 @@ mod tests {
             &root.rankings[0].date.parse::<NaiveDate>().unwrap(),
             &root.competitions,
         );
-        println!("{} {}", &root.rankings[0].id, &root.rankings[0].date);
+        println!(
+            "{} {}",
+            &root.rankings[0].internal_id, &root.rankings[0].date
+        );
         if let Some(mut pn) = pn {
             pn.sort_by(|a, b| a.pilot_pin.cmp(&b.pilot_pin));
             for point in pn {
@@ -311,7 +314,7 @@ mod tests {
         let (mut rankings, _, competitions) = get_test_data();
         // Now create a ranking and check again
         let ranking = Ranking {
-            id: "2013-09-10".to_string(),
+            internal_id: "2013-09-10".to_string(),
             date: "2013-09-10".to_string(),
             ranking_points: calculate_rankings(
                 &"2013-09-10".to_string().parse::<NaiveDate>().unwrap(),
@@ -362,15 +365,17 @@ mod tests {
     #[test]
     fn test_pplacing() {
         let (_, pilots, competitions) = get_test_data();
-        let auckland_comp = competitions
-            .iter()
-            .find(|c| c.id.cmp(&"2013-09-09-Auckland".to_string()).is_eq());
+        let auckland_comp = competitions.iter().find(|c| {
+            c.internal_id
+                .cmp(&"2013-09-09-Auckland".to_string())
+                .is_eq()
+        });
         let wanaka_comp = competitions
             .iter()
-            .find(|c| c.id.cmp(&"2014-10-05-Wanaka".to_string()).is_eq());
+            .find(|c| c.internal_id.cmp(&"2014-10-05-Wanaka".to_string()).is_eq());
         let waikato_comp = competitions
             .iter()
-            .find(|c| c.id.cmp(&"2015-08-03-Waikato".to_string()).is_eq());
+            .find(|c| c.internal_id.cmp(&"2015-08-03-Waikato".to_string()).is_eq());
         fn find_pilot_placing(pilot: &Pilot, comp: &Competition) -> f64 {
             let placing = comp
                 .placings
@@ -609,7 +614,7 @@ mod tests {
         let mut comps: Vec<Competition> = Vec::new();
         let auckland = recalculate_competition(
             &Competition {
-                id: "2013-09-09-Auckland".to_string(),
+                internal_id: "2013-09-09-Auckland".to_string(),
                 name: "Auckland Regional Nov 2013".to_string(),
                 location: "Auckland".to_string(),
                 comp_date: "2013-09-09".to_string(),
@@ -635,7 +640,7 @@ mod tests {
                         },
                         place: auck_comp_placing_map[&p.pin],
                         points: 0.0,
-                        id: i as i64,
+                        internal_id: i as i64,
                         pplacing: 0.0,
                         fai_points: 0.0,
                         pp: 0.0,
@@ -650,7 +655,7 @@ mod tests {
         }
         let wanaka = recalculate_competition(
             &Competition {
-                id: "2014-10-05-Wanaka".to_string(),
+                internal_id: "2014-10-05-Wanaka".to_string(),
                 name: "Wanaka".to_string(),
                 location: "Wanaka".to_string(),
                 comp_date: "2014-10-05".to_string(),
@@ -676,7 +681,7 @@ mod tests {
                         },
                         place: wanaka_comp_placing_map[&p.pin],
                         points: 0.0,
-                        id: i as i64,
+                        internal_id: i as i64,
                         pplacing: 0.0,
                         fai_points: 0.0,
                         pp: 0.0,
@@ -691,7 +696,7 @@ mod tests {
         }
         let waikato = recalculate_competition(
             &Competition {
-                id: "2015-08-03-Waikato".to_string(),
+                internal_id: "2015-08-03-Waikato".to_string(),
                 name: "Waikato".to_string(),
                 location: "Waikato".to_string(),
                 comp_date: "2015-08-03".to_string(),
@@ -717,7 +722,7 @@ mod tests {
                         },
                         place: waikato_comp_placing_map[&p.pin],
                         points: 0.0,
-                        id: i as i64,
+                        internal_id: i as i64,
                         pplacing: 0.0,
                         fai_points: 0.0,
                         pp: 0.0,
@@ -732,7 +737,7 @@ mod tests {
         }
         let ranking = Ranking {
             date: "2013-09-09".to_string(),
-            id: "2013-09-09".to_string(),
+            internal_id: "2013-09-09".to_string(),
             ranking_points: calculate_rankings(
                 &"2013-09-09".to_string().parse::<NaiveDate>().unwrap(),
                 &comps,

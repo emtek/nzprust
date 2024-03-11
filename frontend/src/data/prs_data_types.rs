@@ -49,7 +49,7 @@ fn validate_overseas(competition: &Competition) -> Result<(), ValidationError> {
 #[serde(rename_all = "camelCase")]
 #[validate(schema(function = "validate_overseas", skip_on_field_errors = false))]
 pub struct Competition {
-    pub id: String,
+    pub internal_id: String,
     #[validate(length(min = 3, max = 300, message = "Must be longer than 3 characters"))]
     pub name: String,
     #[validate(length(min = 3, max = 300, message = "Must be longer than 3 characters"))]
@@ -72,7 +72,7 @@ pub struct Competition {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Placing {
-    pub id: i64,
+    pub internal_id: i64,
     pub pilot: CompetitionPilot,
     pub place: i64,
     pub points: f64,
@@ -93,7 +93,7 @@ pub struct CompetitionPilot {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Ranking {
-    pub id: String,
+    pub internal_id: String,
     pub date: String,
     pub ranking_points: Vec<RankingPoint>,
 }

@@ -45,7 +45,7 @@ async fn competition(
         .find(None)
         .unwrap()
         .flatten()
-        .filter(|c| c.id == id)
+        .filter(|c| c.internal_id == id)
         .collect::<Vec<Competition>>()
         .first()
     {

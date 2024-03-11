@@ -3,19 +3,21 @@ use frontend::prs_data_types::{self, Competition, Pilot, Ranking, Root};
 
 use polodb_core::Database;
 use scraper::Html;
+use serde::Deserialize;
 use serde_json::from_str;
 use std::fs;
-use surrealdb::engine::remote::ws::Ws;
+use surrealdb::engine::remote::ws::{Ws, Wss};
+use surrealdb::sql::Thing;
 use surrealdb::{Error, Surreal};
 
 pub async fn add_to_surreal(root: &Root) -> Result<bool> {
     // Connect to the server
-    let db = Surreal::new::<Ws>("127.0.0.1:8000").await?;
+    let db = Surreal::new::<Wss>("spring-day-hooray-misty-hill-8333.fly.dev").await?;
 
     // Signin as a namespace, database, or root user
     db.signin(surrealdb::opt::auth::Root {
-        username: "root",
-        password: "root",
+        username: "nzprsroot",
+        password: "nzprsmaxpass123",
     })
     .await?;
 
@@ -23,14 +25,14 @@ pub async fn add_to_surreal(root: &Root) -> Result<bool> {
     db.use_ns("default").use_db("default").await?;
 
     // Create a new person with a random id
-    for f in root.pilots.iter() {
-        let _: Pilot = db.create("pilots").content(f.clone()).await?;
-    }
+    // for f in root.pilots.iter() {
+    //     let pilots: Vec<Pilot> = db.create("pilots").content(f.clone()).await?;
+    // }
     for f in root.competitions.iter() {
-        let _: Result<Competition, Error> = db.create("competitions").content(f.clone()).await;
+        let competitions: Vec<Record> = db.create("competitions").content(f.clone()).await?;
     }
     for f in root.rankings.iter() {
-        let _: Result<Competition, Error> = db.create("rankings").content(f.clone()).await;
+        let rankings: Vec<Record> = db.create("rankings").content(f.clone()).await?;
     }
     // root.competitions.iter().for_each(move |f| {
     //     async move {
@@ -78,7 +80,7 @@ pub fn get_from_polo() {
 }
 
 pub fn load_data() -> Result<prs_data_types::Root> {
-    let contents: String = fs::read_to_string("./backend/data/nzprsBackup.json")?;
+    let contents: String = fs::read_to_string("./data/nzprsBackup.json")?;
     let r = from_str(&contents)?;
     Ok(r)
 }
@@ -116,4 +118,10 @@ pub enum MultiError {
     RequestError,
     DeserializeError,
     // etc.
+}
+
+#[derive(Debug, Deserialize)]
+struct Record {
+    #[allow(dead_code)]
+    id: Thing,
 }

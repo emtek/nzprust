@@ -110,7 +110,7 @@ pub async fn from_fai(State(data): State<Arc<Database>>, Path(comp_id): Path<i32
                 let last_name = split_name.last();
                 let existing_pilot = search_pilot(&data, &f[7], &f[5]);
                 Placing {
-                    id: 1,
+                    internal_id: 1,
                     pilot: CompetitionPilot {
                         pin: existing_pilot
                             .clone()
