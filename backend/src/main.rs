@@ -49,8 +49,7 @@ fn setup_server() -> Router {
     );
     let db = Database::open_file("./data/polostore.db").unwrap();
     let arc_db = Arc::new(db);
-    //let data = load_data().unwrap();
-    //add_to_polo(&data);
+
     //get_from_polo();
     let admin_users: Vec<String> = vec!["slowtalkinguy@gmail.com".to_string()]; //data.admin_users.iter().map(|f| f.clone()).collect();
     let google_certs = CachedCerts::new();
@@ -144,7 +143,7 @@ async fn main() {
 
     let router = setup_server();
     // run our app with hyper
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     tracing::info!("nzprs backend listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(router.into_make_service())
@@ -158,8 +157,10 @@ async fn main() {
 mod tests {
     use super::*;
 
-    #[test]
-    fn server_should_be_valid() {
-        let _ = setup_server();
+    #[tokio::test]
+    async fn server_should_be_valid() {
+        //let _ = setup_server();
+        let data = load_data().unwrap();
+        add_to_surreal(&data).await.unwrap();
     }
 }

@@ -1,0 +1,1 @@
+[{"kind":2,"language":"surrealql","value":"create person content { Person: { id: 'blah', name: \"blah\"}}"},{"kind":2,"language":"surrealql","value":"select * from competitions"}]
