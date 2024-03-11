@@ -25,9 +25,9 @@ pub async fn add_to_surreal(root: &Root) -> Result<bool> {
     db.use_ns("default").use_db("default").await?;
 
     // Create a new person with a random id
-    // for f in root.pilots.iter() {
-    //     let pilots: Vec<Pilot> = db.create("pilots").content(f.clone()).await?;
-    // }
+    for f in root.pilots.iter() {
+        let pilots: Vec<Record> = db.create("pilots").content(f.clone()).await?;
+    }
     for f in root.competitions.iter() {
         let competitions: Vec<Record> = db.create("competitions").content(f.clone()).await?;
     }
