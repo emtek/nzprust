@@ -7,25 +7,25 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = "1.0"
-axum = {version = "0.6.16", features = ["headers"]}
-chrono = {version = "0.4.24", features = ["unstable-locales"]}
+axum = {version = "0.7.4"}
+chrono = {version = "0.4.35", features = ["unstable-locales"]}
 frontend = {path = "../frontend"}
-futures = "0.3.28"
+futures = "0.3.30"
 google-signin = {git = "https://github.com/emtek/google-signin-rs.git"}
-opentelemetry = {version = "0.17.0", features = ["trace", "rt-tokio"]}
-opentelemetry-otlp = {version = "0.10.0", features = ["http-proto", "reqwest-client", "tokio"]}
-opentelemetry-semantic-conventions = "0.9"
-polodb_core = "4.4.0"
+opentelemetry = {version = "0.22.0", features = ["trace"]}
+opentelemetry-otlp = {version = "0.15.0", features = ["trace", "http-proto", "reqwest-client", "tokio"]}
+opentelemetry-semantic-conventions = "0.14.0"
+opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"] }
 reqwest = {version = "0.11.16"}
-scraper = "0.16.0"
-serde = {version = "1.0.160", features = ["derive"]}
-serde_json = "1.0.96"
-surrealdb = "1.2.2"
-tokio = {version = "1.25.0", features = ["full"]}
+scraper = "0.19.0"
+serde = {version = "1.0.197", features = ["derive"]}
+serde_json = "1.0.114"
+surrealdb = "1.3.0"
+tokio = {version = "1.36.0", features = ["full"]}
 tower = "0.4.13"
-tower-http = {version = "0.4.0", features = ["cors", "fs", "auth", "trace", "catch-panic"]}
-tracing = "0.1"
-tracing-opentelemetry = "0.17.4"
-tracing-subscriber = {version = "0.3", features = ["env-filter"]}
-uuid = {version = "1.3.1", features = ["serde"]}
-validator = {version = "0.16.0", features = ["derive"]}
+tower-http = {version = "0.5.2", features = ["cors", "fs", "auth", "trace", "catch-panic"]}
+tracing = "0.1.40"
+tracing-opentelemetry = "0.23.0"
+tracing-subscriber = {version = "0.3.18", features = ["env-filter"]}
+uuid = {version = "1.7.0", features = ["serde"]}
+validator = {version = "0.17.0", features = ["derive"]}

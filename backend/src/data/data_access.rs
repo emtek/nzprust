@@ -1,7 +1,5 @@
 use anyhow::Result;
 use frontend::prs_data_types::{self, Competition, Pilot, Ranking, Root};
-
-use polodb_core::Database;
 use scraper::Html;
 use serde::Deserialize;
 use serde_json::from_str;
@@ -35,35 +33,6 @@ pub async fn add_to_surreal(root: &Root) -> Result<bool> {
         let rankings: Vec<Record> = db.create("rankings").content(f.clone()).await?;
     }
     Ok(true)
-}
-
-pub fn add_to_polo(root: &Root) {
-    let db = Database::open_file("polostore.db").unwrap();
-    let pilot_collection = db.collection::<Pilot>("pilots");
-    root.pilots.iter().all(|f| {
-        pilot_collection.insert_one(f).unwrap();
-        true
-    });
-    let competition_collection = db.collection::<Competition>("competitions");
-    root.competitions.iter().all(|f| {
-        competition_collection.insert_one(f).unwrap();
-        true
-    });
-    let ranking_collection = db.collection::<Ranking>("rankings");
-    root.rankings.iter().all(|f| {
-        ranking_collection.insert_one(f).unwrap();
-        true
-    });
-}
-
-pub fn get_from_polo() {
-    let db = Database::open_file("polostore.db").unwrap();
-    let collection = db.collection::<Competition>("competitions");
-    let pilots = collection.find(None).unwrap();
-
-    for pilot in pilots {
-        println!("Competition: {:?}", pilot);
-    }
 }
 
 pub fn load_data() -> Result<prs_data_types::Root> {
@@ -108,7 +77,7 @@ pub enum MultiError {
 }
 
 #[derive(Debug, Deserialize)]
-struct Record {
+pub struct Record {
     #[allow(dead_code)]
     id: Thing,
 }

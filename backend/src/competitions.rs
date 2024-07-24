@@ -9,7 +9,6 @@ use axum::{
 };
 use chrono::{Months, NaiveDate};
 use frontend::prs_data_types::{Competition, Ranking, Root};
-use polodb_core::Database;
 use surrealdb::{engine::remote::ws::Client, Surreal};
 use validator::Validate;
 
@@ -26,7 +25,10 @@ pub fn restricted_competition_routes() -> Router<Arc<Surreal<Client>>> {
 }
 
 async fn competitions(State(data): State<Arc<Surreal<Client>>>) -> Response {
-    let mut db_response = data.query("select * from competitions").await.unwrap();
+    let mut db_response = data
+        .query("select * from competitions order by compDate desc")
+        .await
+        .unwrap();
     let mut sorted_competitions: Vec<Competition> = db_response.take(0).unwrap();
     sorted_competitions.sort_by(|a, b| b.comp_date.cmp(&a.comp_date));
     Json(&sorted_competitions).into_response()
@@ -37,7 +39,10 @@ async fn competition(
     Path(id): extract::Path<String>,
 ) -> Response {
     tracing::info!("Competition {:?} requested", id);
-    let mut db_response = data.query("select * from competitions").await.unwrap();
+    let mut db_response = data
+        .query("select * from competitions order by compDate desc")
+        .await
+        .unwrap();
     let competitions: Vec<Competition> = db_response.take(0).unwrap();
     match &competitions
         .into_iter()
@@ -55,7 +60,7 @@ async fn create_competition(
     Json(competition): extract::Json<Competition>,
 ) -> Response {
     let mut db_response = data
-        .query("select * from competitions; select * from rankings")
+        .query("select * from competitions order by compDate desc; select * from rankings")
         .await
         .unwrap();
     let competitions: Vec<Competition> = db_response.take(0).unwrap();
@@ -66,9 +71,9 @@ async fn create_competition(
             rankings.sort_by(|a, b| b.date.cmp(&a.date));
             let ranking = rankings.iter().find(|r| {
                 let comp_date = competition.comp_date.parse::<NaiveDate>().unwrap();
-                let rdate = &&r.date.parse::<NaiveDate>().unwrap();
+                let ranking_date = &&r.date.parse::<NaiveDate>().unwrap();
                 let two_years_earlier = comp_date.checked_sub_months(Months::new(24)).unwrap();
-                two_years_earlier.lt(&rdate) && (comp_date.gt(&rdate) || comp_date.eq(&rdate))
+                two_years_earlier.lt(&ranking_date) && (comp_date.gt(&ranking_date) || comp_date.eq(&ranking_date))
             });
             match scoring::recalculate_competition(&competition, ranking, &competitions) {
                 Some(new_competition) => Json(new_competition).into_response(),

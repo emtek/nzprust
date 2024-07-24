@@ -1,25 +1,25 @@
-use std::sync::Arc;
+use std::{borrow::Borrow, sync::Arc};
 
 use anyhow::Error;
 use axum::{
     extract::{self, Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use frontend::prs_data_types::{Competition, Ranking, Root};
-use polodb_core::Database;
 use surrealdb::{engine::remote::ws::Client, Surreal};
+use validator::ValidateLength;
 
-use crate::{competitions, scoring};
+use crate::{competitions, scoring, Record};
 
 pub fn ranking_routes() -> Router<Arc<Surreal<Client>>> {
     Router::new()
         .route("/api/rankings", get(get_rankings))
         .route("/api/ranking/:date", get(get_ranking))
-        .route("/api/rankings/:date", post(create_ranking))
+        .route("/api/ranking/:date", delete(delete_ranking))
 }
 
 async fn get_rankings(State(data): State<Arc<Surreal<Client>>>) -> Response {
@@ -30,36 +30,65 @@ async fn get_rankings(State(data): State<Arc<Surreal<Client>>>) -> Response {
 
 async fn get_ranking(
     State(data): State<Arc<Surreal<Client>>>,
-    Path(date): extract::Path<String>,
+    Path(date_input): extract::Path<String>,
 ) -> Response {
-    let mut db_response = data
-        .query("select * from rankings where internalId = $date")
-        .bind(("date", date))
-        .await
-        .unwrap();
-    let rankings: Vec<Ranking> = db_response.take(0).unwrap();
-    (StatusCode::OK, Json(rankings[0].clone())).into_response()
+    match date_input.parse::<NaiveDate>() {
+        Ok(date) => match date.gt(&Utc::now().date_naive()) {
+            true => (StatusCode::NOT_FOUND, "Ranking can't exist yet").into_response(),
+            false => {
+                let mut db_response = data
+                    .query("select * from rankings where internalId = $date")
+                    .bind(("date", date))
+                    .await
+                    .unwrap();
+                let rankings: Vec<Ranking> = db_response.take(0).unwrap();
+                match rankings.length() {
+                    Some(0) => create_ranking(data, date).await,
+                    _ => (StatusCode::OK, Json(rankings[0].clone())).into_response(),
+                }
+            }
+        },
+        Err(_) => (StatusCode::BAD_REQUEST, "Not a valid date").into_response(),
+    }
 }
 
-async fn create_ranking(
-    State(data): State<Arc<Surreal<Client>>>,
-    Path(date): extract::Path<String>,
-) -> Response {
+async fn create_ranking(data: Arc<Surreal<Client>>, date: NaiveDate) -> Response {
     let mut db_response = data
         .query("select * from competitions")
         .bind(("date", &date))
         .await
         .unwrap();
     let competitions: Vec<Competition> = db_response.take(0).unwrap();
-    match date.parse::<NaiveDate>() {
-        Ok(date) => {
-            let results = scoring::calculate_rankings(&date, &&competitions);
-            match results {
-                Some(results) => Json(results).into_response(),
-                None => (StatusCode::BAD_REQUEST).into_response(),
-            }
+    let results = scoring::calculate_rankings(&date, &&competitions);
+    match results {
+        Some(results) => {
+            let ranking = Ranking {
+                ranking_points: results.clone(),
+                date: date.to_string(),
+                internal_id: date.to_string(),
+            };
+            let record: Vec<Record> = data
+                .create("rankings")
+                .content(ranking.clone())
+                .await
+                .unwrap();
+            Json(ranking.clone()).into_response()
         }
-        Err(_) => (StatusCode::BAD_REQUEST, "Not a valid date").into_response(),
+        None => (StatusCode::BAD_REQUEST).into_response(),
+    }
+}
+
+async fn delete_ranking(
+    State(data): State<Arc<Surreal<Client>>>,
+    Path(date_input): extract::Path<String>,
+) -> Response {
+    let db_response = data
+        .query("delete rankings where date = $date")
+        .bind(("date", &date_input))
+        .await;
+    match db_response {
+        Ok(success) => (StatusCode::OK).into_response(),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
     }
 }
 

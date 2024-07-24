@@ -9,16 +9,17 @@
     <script>
         function receive_token(token) {
             window.localStorage.setItem('auth', JSON.stringify(token.credential));
+            console.log(token.credential)
             window.location.href = "/";
         }
     </script>
 
-<link rel="preload" href="/frontend-637ecd03cf3dbec9_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
-<link rel="modulepreload" href="/frontend-637ecd03cf3dbec9.js"></head>
+<link rel="preload" href="/frontend-3bf15fbf6cee7af4_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+<link rel="modulepreload" href="/frontend-3bf15fbf6cee7af4.js"></head>
 
 <body>
 <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule="" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
 
 
-<script type="module">import init from '/frontend-637ecd03cf3dbec9.js';init('/frontend-637ecd03cf3dbec9_bg.wasm');</script></body></html>
+<script type="module">import init from '/frontend-3bf15fbf6cee7af4.js';init('/frontend-3bf15fbf6cee7af4_bg.wasm');</script></body></html>

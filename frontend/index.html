@@ -13,6 +13,7 @@
     <script>
         function receive_token(token) {
             window.localStorage.setItem('auth', JSON.stringify(token.credential));
+            console.log(token.credential)
             window.location.href = "/";
         }
     </script>

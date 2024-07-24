@@ -10,19 +10,20 @@ use data::data_access::*;
 use frontend::prs_data_types::UserInfo;
 use google_auth::google_auth;
 use google_signin::CachedCerts;
-use integrations::{from_fai, from_highcloud};
-use opentelemetry::sdk::trace::{self};
+
+use opentelemetry_sdk::trace::{self};
 use opentelemetry::{
     global::{self},
-    sdk::{propagation::TraceContextPropagator, Resource},
     KeyValue,
 };
 use opentelemetry_otlp::WithExportConfig;
 use pilots::pilot_routes;
-use polodb_core::Database;
 use rankings::ranking_routes;
 use std::{collections::HashMap, env, net::SocketAddr, path::PathBuf, sync::Arc};
+use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::Resource;
 use surrealdb::{engine::remote::ws::Wss, Surreal};
+use tokio::net::TcpListener;
 use tokio::signal;
 use tower_http::{catch_panic::CatchPanicLayer, services::ServeFile, trace::TraceLayer};
 use tracing::instrument::WithSubscriber;
@@ -139,7 +140,7 @@ async fn main() {
                     "NZPRS".to_string(),
                 )])),
             )
-            .install_batch(opentelemetry::runtime::Tokio)
+            .install_batch(opentelemetry_sdk::runtime::Tokio)
             .expect("Error - Failed to create tracer.");
 
         tracing_subscriber::registry()
@@ -156,14 +157,11 @@ async fn main() {
 
     let router = setup_server().await;
     // run our app with hyper
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
+    let listener = TcpListener::bind(addr).await.unwrap();
     tracing::info!("nzprs backend listening on {}", addr);
-    axum::Server::bind(&addr)
-        .serve(router.into_make_service())
-        .with_graceful_shutdown(shutdown_signal())
-        .with_current_subscriber()
-        .await
-        .unwrap();
+    axum::serve(listener, router.into_make_service())
+        .with_graceful_shutdown(shutdown_signal()).await.unwrap();
 }
 
 #[cfg(test)]

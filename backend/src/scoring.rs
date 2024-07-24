@@ -1,7 +1,5 @@
 use crate::data::constants::*;
-use frontend::prs_data_types::{
-    CompResult, Competition, CompetitionPilot, Placing, Ranking, RankingPoint,
-};
+use frontend::prs_data_types::{CompResult, Competition, CompetitionPilot, Placing, Ranking, RankingPoint, Pilot};
 
 use chrono::prelude::*;
 use chrono::Months;
@@ -165,8 +163,8 @@ pub fn calculate_rankings(
         })
         .fold(
             HashMap::new(),
-            |mut pin_results: HashMap<String, Vec<CompResult>>,
-             pin_result: (String, CompResult)| {
+            |mut pin_results: HashMap<CompetitionPilot, Vec<CompResult>>,
+             pin_result: (CompetitionPilot, CompResult)| {
                 match pin_results.get_mut(&pin_result.0) {
                     Some(results) => {
                         results.push(pin_result.1.clone());
@@ -182,10 +180,10 @@ pub fn calculate_rankings(
         )
         .iter()
         .map(|pin_results| RankingPoint {
-            pilot_first_name: pin_results.0.clone(),
-            pilot_gender: None,
-            pilot_last_name: pin_results.0.clone(),
-            pilot_pin: pin_results.0.clone(),
+            pilot_first_name: pin_results.0.first_name.clone(),
+            pilot_gender: Some(pin_results.0.gender.clone()),
+            pilot_last_name: pin_results.0.last_name.clone(),
+            pilot_pin: pin_results.0.pin.clone(),
             results: pin_results.1.clone(),
             total_points: pin_results.1.iter().take(4).map(|r| r.points).sum(),
         })
@@ -212,11 +210,11 @@ fn time_decayed_points(
     competition: &Competition,
     placing: &Placing,
     ranking_date: &NaiveDate,
-) -> Option<(String, CompResult)> {
+) -> Option<(CompetitionPilot, CompResult)> {
     let comp_date = competition.comp_date.parse::<NaiveDate>().ok()?;
     let days_since_competition = ranking_date.signed_duration_since(comp_date).num_days() as f64;
     Some((
-        placing.pilot.pin.clone(),
+        placing.pilot.clone(),
         CompResult {
             place: placing.place.clone(),
             comp_id: competition.internal_id.clone(),
@@ -226,6 +224,7 @@ fn time_decayed_points(
         },
     ))
 }
+
 
 #[cfg(test)]
 mod tests {

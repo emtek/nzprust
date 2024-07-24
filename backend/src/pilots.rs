@@ -7,8 +7,6 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use polodb_core::Database;
-
 use frontend::prs_data_types::{Competition, Pilot, Root};
 use surrealdb::{engine::remote::ws::Client, Surreal};
 
@@ -41,7 +39,10 @@ async fn pilot_competitions(
     State(data): State<Arc<Surreal<Client>>>,
     Path(pin): extract::Path<i32>,
 ) -> Response {
-    let mut db_response = data.query("select * from competitions").await.unwrap();
+    let mut db_response = data
+        .query("select * from competitions order by compDate desc")
+        .await
+        .unwrap();
     let competitions: Vec<Competition> = db_response.take(0).unwrap();
     Json(
         competitions

@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -56,7 +57,7 @@ pub struct Competition {
     pub location: String,
     pub overseas: bool,
     pub exchange_rate: f64,
-    #[validate(custom = "validate_date")]
+    #[validate(custom(function = "validate_date"))]
     pub comp_date: String,
     #[validate(range(min = 1, max = 10, message = "Please add the number of tasks 1-10"))]
     pub num_tasks: i64,
@@ -81,13 +82,18 @@ pub struct Placing {
     pub pplacing: f64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompetitionPilot {
     pub pin: String,
     pub first_name: String,
     pub last_name: String,
     pub gender: String,
+}
+impl Hash for CompetitionPilot {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.pin.hash(state);
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

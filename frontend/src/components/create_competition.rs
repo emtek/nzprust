@@ -2,12 +2,10 @@ use std::rc::Rc;
 
 use crate::{data::prs_data_types::Competition, data::*, routes::AppRoute};
 use validator::Validate;
-use web_sys::HtmlInputElement;
 use yew::prelude::*;
-use yew::InputEvent;
 use yew_router::prelude::Link;
 use yewdux::prelude::*;
-use yewdux_input::InputDispatch;
+use yewdux_input::*;
 
 fn is_valid(field: &str, state: &Rc<Competition>) -> Option<String> {
     match validation_message(field, state) {
@@ -72,50 +70,22 @@ async fn get_fai_comp(url_string: &String) -> Result<Competition, MultiError> {
 #[function_component(CompetitionCreate)]
 pub fn competition_create() -> Html {
     let (state, dispatch) = use_store::<Competition>();
-    let import_input = use_state(|| "".to_string());
 
-    let import_changed = {
-        let handle = import_input.clone();
-        Callback::from(move |e: InputEvent| {
-            let element: HtmlInputElement = e.target_dyn_into().unwrap();
-            handle.set(element.value());
-        })
-    };
     let from_fai = {
-        let handle = import_input.clone();
-        dispatch.reduce_mut_future_callback(move |state| {
-            let v = handle.clone();
-            Box::pin(async move {
-                if let Ok(comp) = get_fai_comp(&v.to_string()).await {
-                    web_sys::console::log_1(&comp.name.clone().into());
-                    state.name = comp.name;
-                    state.location = comp.location;
-                    state.comp_date = comp.comp_date;
-                    state.num_tasks = comp.num_tasks;
-                    state.overseas = comp.overseas;
-                    state.placings = comp.placings;
-                }
-                ()
-            })
+        dispatch.future_callback(|dispatch| async move {
+            if let Ok(comp) = get_fai_comp(&dispatch.get().internal_id.to_string()).await {
+                web_sys::console::log_1(&comp.name.clone().into());
+                dispatch.set(comp);
+            }
         })
     };
 
     let from_hc = {
-        let handle = import_input.clone();
-        dispatch.reduce_mut_future_callback(move |state| {
-            let v = handle.clone();
-            Box::pin(async move {
-                if let Ok(comp) = get_highcloud_comp(&v.to_string()).await {
-                    web_sys::console::log_1(&comp.name.clone().into());
-                    state.name = comp.name;
-                    state.location = comp.location;
-                    state.comp_date = comp.comp_date;
-                    state.num_tasks = comp.num_tasks;
-                    state.overseas = comp.overseas;
-                    state.placings = comp.placings;
-                }
-                ()
-            })
+        dispatch.future_callback(|dispatch| async move {
+            if let Ok(comp) = get_highcloud_comp(&dispatch.get().internal_id.to_string()).await {
+                web_sys::console::log_1(&comp.name.clone().into());
+                dispatch.set(comp);
+            }
         })
     };
 
@@ -147,7 +117,7 @@ pub fn competition_create() -> Html {
     <div class="field">
         <label class="label">{"Import"}</label>
         <div class="control">
-          <input oninput={import_changed} class="input" type="text" placeholder="Highcloud/FAI Competition Id"/>
+          <input value={dispatch.get().internal_id.clone()} oninput={dispatch.reduce_callback_with(|s, e:InputEvent| Competition{ internal_id: e.target().unwrap().as_string().unwrap(), ..s.as_ref().clone()}.into())} class="input" type="text" placeholder="Highcloud/FAI Competition Id"/>
         </div>
       </div>
     <div class="field is-grouped">
@@ -157,11 +127,11 @@ pub fn competition_create() -> Html {
       <div class="control">
         <button class="button is-link" onclick={from_fai}>{"From FAI"}</button>
       </div>
-    </div>
+     </div>
       <div class="field">
         <label class="label">{"Name"}</label>
         <div class="control">
-          <input value={dispatch.get().name.clone()} oninput={dispatch.input_mut(|state, text| state.name = text)} class={classes!("input",is_valid("name", &state))} type="text" placeholder="Name"/>
+          <input value={dispatch.get().name.clone()} onchange={dispatch.reduce_callback_with(|s, e:Event| Competition{ name: e.target_dyn_into().unwrap_or_default().to_string(), ..s.as_ref().clone()}.into())} class={classes!("input",is_valid("name", &state))} type="text" placeholder="Name"/>
         </div>
         <p class="help is-danger">{validation_message("name", &state)}</p>
       </div>
@@ -169,39 +139,39 @@ pub fn competition_create() -> Html {
       <div class="field">
         <label class="label">{"Location"}</label>
         <div class="control">
-          <input value={dispatch.get().location.clone()} oninput={dispatch.input_mut(|state, text| state.location = text)} class={classes!("input",is_valid("location", &state))} type="text" placeholder="Location"/>
+          <input value={dispatch.get().location.clone()} oninput={dispatch.reduce_callback_with(|s, e:InputEvent| Rc::new(Competition{ location: e.as_string().unwrap(), ..s.as_ref().clone()}))} class={classes!("input",is_valid("location", &state))} type="text" placeholder="Location"/>
         </div>
         <p class="help is-danger">{validation_message("location", &state)}</p>
       </div>
 
-      <div class="field">
-        <label class="label">{"Start Date"}</label>
-        <div class="control">
-          <input type="date" value={dispatch.get().comp_date.clone()} oninput={dispatch.input_mut(|state, text| state.comp_date = text)} class={classes!("input",is_valid("comp_date", &state))} type="text" placeholder="YYYY-MM-DD"/>
-        </div>
-        <p class="help is-danger">{validation_message("comp_date", &state)}</p>
-      </div>
-
-      <div class="field">
-        <label class="label">{"Number of tasks"}</label>
-        <div class="control">
-          <input value={dispatch.get().num_tasks.to_string()}  type="number"  oninput={dispatch.input_mut(|state, text| state.num_tasks = text)} class={classes!("input",is_valid("num_tasks", &state))} type="text" placeholder="Number of tasks"/>
-        </div>
-        <p class="help is-danger">{validation_message("num_tasks",&state)}</p>
-      </div>
-
-      <div class="field">
-        <input id="switchRoundedInfo" type="checkbox" onclick={dispatch.reduce_mut_callback(|state| state.overseas = !state.overseas)}  name="switchRoundedInfo" class="switch is-rounded is-info" checked={dispatch.get().overseas}/>
-        <label for="switchRoundedInfo">{"Overseas"}</label>
-      </div>
-
-      <div class={classes!("field",exchange_rate_visible(&state))}>
-        <label class="label">{"Exchange rate"}</label>
-        <div class="control">
-          // <input type="number" oninput={dispatch.input(|state, text| state.exchange_rate = text)} class={classes!("input",is_valid("exchange_rate", &state))} type="text" placeholder="Exchange rate"/>
-        </div>
-        <p class="help is-danger">{validation_message("exchange_rate",&state)}</p>
-      </div>
+      // <div class="field">
+      //   <label class="label">{"Start Date"}</label>
+      //   <div class="control">
+      //     <input type="date" value={dispatch.get().comp_date.clone()} oninput={dispatch.input_mut(|state, text| state.comp_date = text)} class={classes!("input",is_valid("comp_date", &state))} type="text" placeholder="YYYY-MM-DD"/>
+      //   </div>
+      //   <p class="help is-danger">{validation_message("comp_date", &state)}</p>
+      // </div>
+      //
+      // <div class="field">
+      //   <label class="label">{"Number of tasks"}</label>
+      //   <div class="control">
+      //     <input value={dispatch.get().num_tasks.to_string()}  type="number"  oninput={dispatch.input_mut(|state, text| state.num_tasks = text)} class={classes!("input",is_valid("num_tasks", &state))} type="text" placeholder="Number of tasks"/>
+      //   </div>
+      //   <p class="help is-danger">{validation_message("num_tasks",&state)}</p>
+      // </div>
+      //
+      // <div class="field">
+      //   <input id="switchRoundedInfo" type="checkbox" onclick={dispatch.reduce_mut_callback(|state| state.overseas = !state.overseas)}  name="switchRoundedInfo" class="switch is-rounded is-info" checked={dispatch.get().overseas}/>
+      //   <label for="switchRoundedInfo">{"Overseas"}</label>
+      // </div>
+      //
+      // <div class={classes!("field",exchange_rate_visible(&state))}>
+      //   <label class="label">{"Exchange rate"}</label>
+      //   <div class="control">
+      //     // <input type="number" oninput={dispatch.input(|state, text| state.exchange_rate = text)} class={classes!("input",is_valid("exchange_rate", &state))} type="text" placeholder="Exchange rate"/>
+      //   </div>
+      //   <p class="help is-danger">{validation_message("exchange_rate",&state)}</p>
+      // </div>
 
       <div class="control">
         <table class="table is-fullwidth">
